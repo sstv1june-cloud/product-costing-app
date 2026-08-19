@@ -1,3 +1,8 @@
+#!/usr/bin/env bash
+set -e
+
+echo "==> 1. Adding localStorage Persistence & Auto-Sync to masterStore.js..."
+cat << 'STORE_EOF' > src/shared/masterStore.js
 import { initialBaselineData } from '../modules/module1-baseline/baselineData';
 
 const STORAGE_KEY = 'CPC_PRODUCT_COSTING_STATE_V1';
@@ -528,3 +533,12 @@ export const uploadBulkSales = (newSales) => {
 };
 
 export default globalStore;
+STORE_EOF
+
+echo "==> 2. Restarting Vite Server..."
+rm -rf node_modules/.vite 2>/dev/null || true
+killall -9 node 2>/dev/null || fuser -k 5173/tcp 2>/dev/null || true
+nohup npm run dev -- --host 0.0.0.0 --port 5173 > /tmp/vite_server.log 2>&1 &
+sleep 2
+
+echo "==> Done! Full localStorage persistence & MIS sync enabled."

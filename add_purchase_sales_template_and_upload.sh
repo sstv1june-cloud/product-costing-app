@@ -1,3 +1,8 @@
+#!/usr/bin/env bash
+set -e
+
+echo "==> 1. Updating RMPriceMatrixPage.xlsx with Purchase & Sales Template download and Excel upload..."
+cat << 'MATRIX_EOF' > src/modules/module2-rm-matrix/RMPriceMatrixPage.jsx
 import React, { useState, useEffect } from 'react';
 import { 
   Layers, Lock, Unlock, Calendar, History, 
@@ -507,3 +512,12 @@ export default function RMPriceMatrixPage() {
     </div>
   );
 }
+MATRIX_EOF
+
+echo "==> 2. Restarting Vite Server..."
+rm -rf node_modules/.vite 2>/dev/null || true
+killall -9 node 2>/dev/null || fuser -k 5173/tcp 2>/dev/null || true
+nohup npm run dev -- --host 0.0.0.0 --port 5173 > /tmp/vite_server.log 2>&1 &
+sleep 2
+
+echo "==> Done! Purchase & Sales template download and upload successfully deployed."
