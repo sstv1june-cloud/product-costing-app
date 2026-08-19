@@ -1,0 +1,11 @@
+{
+  "name": "Product Costing App",
+  "forwardPorts": [5173],
+  "portsAttributes": {
+    "5173": {
+      "label": "Application Preview",
+      "onAutoForward": "openBrowser",
+      "visibility": "public"
+    }
+  }
+}
