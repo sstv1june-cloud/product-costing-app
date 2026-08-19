@@ -1,3 +1,8 @@
+#!/usr/bin/env bash
+set -e
+
+# Update Unified MIS Page to strictly use baselineCalc.totalCost
+cat << 'MIS_PAGE_EOF' > /tmp/UnifiedMISPage.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   BarChart3, Filter, Calendar, Eye, X, CheckCircle2, TrendingUp, TrendingDown 
@@ -13,7 +18,6 @@ export default function MISVariancePage() {
   const salesData = globalStore.salesData || [];
   const vendors = globalStore.vendors || [];
 
-  // Top Filter State (placed directly above Summary)
   const [selectedVendor, setSelectedVendor] = useState('Haier');
   const [periodFrom, setPeriodFrom] = useState('2026-08-01');
   const [periodTo, setPeriodTo] = useState('2026-08-31');
@@ -25,10 +29,12 @@ export default function MISVariancePage() {
     return vendorProducts.map(part => {
       const params = part.parameters || {};
 
+      // Resolve RM Mapping & Rates
       const rmMapping = getActiveRmMapping(part.approvedRm, part.vendor, periodFrom);
       const approvedRmRate = rmMapping.approvedPrice || part.approvedRmRate || 136.20;
       const activeWaRate = rmMapping.activeWaPrice || approvedRmRate;
 
+      // 1. Contract Baseline Calculation (Matches Costing Engine & Modal 100%)
       const baselineSpec = {
         cavity: Number(part.cavity ?? params.cavity ?? 2),
         netWeight: Number(part.netWeight ?? params.netWeightApproved ?? 197),
@@ -42,6 +48,7 @@ export default function MISVariancePage() {
       };
       const baselineCalc = calculateDetailedCost(baselineSpec, true);
 
+      // 2. Actual Running Calculation
       const runningSpec = {
         cavity: Number(params.runningCavity ?? baselineSpec.cavity),
         netWeight: Number(params.runningNetWeight ?? baselineSpec.netWeight),
@@ -55,10 +62,12 @@ export default function MISVariancePage() {
       };
       const runningCalc = calculateDetailedCost(runningSpec, false);
 
-      const contractBaseline = Number(part.approvedTotalCost ?? baselineCalc.totalCost.toFixed(2));
+      // Unified baseline and running costs
+      const contractBaseline = Number(baselineCalc.totalCost.toFixed(2));
       const actualUnitCost = Number(runningCalc.totalCost.toFixed(2));
       const unitProfitLoss = Number((contractBaseline - actualUnitCost).toFixed(2));
 
+      // Match Sales Invoices for Selected Period
       const matchedSales = salesData.filter(s => {
         const vendorMatch = selectedVendor === 'ALL' || s.vendor === part.vendor;
         const itemMatch = s.itemCode === part.itemCode;
@@ -112,14 +121,13 @@ export default function MISVariancePage() {
           <h1 className="text-sm font-bold flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-blue-400" /> Vendor & Product Sales P&L MIS Intelligence
           </h1>
-          <p className="text-[11px] text-slate-300">Sales volume, gross margin realization, and contract variance</p>
+          <p className="text-[11px] text-slate-300">Synchronized Piece Costing Variance Engine</p>
         </div>
       </div>
 
-      {/* TOP FILTER BAR ABOVE SUMMARY */}
+      {/* 1. TOP FILTER BAR */}
       <div className="bg-white p-3.5 rounded-2xl border border-slate-300 shadow-xs flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-4 flex-wrap">
-          
           <div className="flex items-center gap-2">
             <Filter className="w-3.5 h-3.5 text-slate-500" />
             <span className="font-bold text-slate-800 text-xs uppercase tracking-wider">Vendor:</span>
@@ -159,15 +167,14 @@ export default function MISVariancePage() {
               />
             </div>
           </div>
-
         </div>
 
         <div className="text-[11px] font-semibold text-slate-500">
-          Filtered for <span className="font-bold text-slate-900">{selectedVendor}</span> ({periodFrom} to {periodTo})
+          Showing data for <span className="font-bold text-slate-900">{selectedVendor}</span> ({periodFrom} to {periodTo})
         </div>
       </div>
 
-      {/* SYNCED SUMMARY CARDS */}
+      {/* 2. SYNCED SUMMARY SECTION */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
         <div className="bg-white border border-slate-300 rounded-2xl p-4 shadow-xs">
           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Period Sales Volume</span>
@@ -191,19 +198,27 @@ export default function MISVariancePage() {
           </span>
         </div>
 
-        <div className="bg-slate-900 text-white border border-slate-800 rounded-2xl p-4 shadow-xs">
-          <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">Cost Variance Gain</span>
-          <span className="text-xl font-black text-emerald-400 font-mono mt-1 block">
-            ₹{totalCostVarianceGain.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+        {/* Cost Variance Gain card with Color coding */}
+        <div className={`rounded-2xl p-4 shadow-xs border ${
+          totalCostVarianceGain >= 0 ? 'bg-emerald-950/90 border-emerald-800' : 'bg-slate-900 border-rose-800/80'
+        }`}>
+          <div className="flex justify-between items-center">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300">Cost Variance Gain / Loss</span>
+            {totalCostVarianceGain >= 0 ? <TrendingUp className="w-3.5 h-3.5 text-emerald-400" /> : <TrendingDown className="w-3.5 h-3.5 text-rose-400" />}
+          </div>
+          <span className={`text-xl font-black font-mono mt-1 block ${
+            totalCostVarianceGain >= 0 ? 'text-emerald-400' : 'text-rose-400'
+          }`}>
+            {totalCostVarianceGain >= 0 ? `₹ +${totalCostVarianceGain.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : `₹ -${Math.abs(totalCostVarianceGain).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
           </span>
         </div>
       </div>
 
-      {/* TABLE WITH 3 EXTRA COLUMNS */}
+      {/* 3. MAIN TABLE (Synchronized 100% with Costing Engine & Modals) */}
       <div className="bg-white border border-slate-300 rounded-2xl shadow-sm overflow-hidden p-4 space-y-3">
         <div className="flex justify-between items-center border-b pb-2">
           <h2 className="font-bold text-slate-900 text-sm">Product Sales Realization & Costing Analysis</h2>
-          <span className="text-[11px] text-slate-500 italic">Click on any product row for sales batch drilldown</span>
+          <span className="text-[11px] text-slate-500 italic">Click on any row for sales batch drilldown</span>
         </div>
 
         <div className="overflow-x-auto border border-slate-300 rounded-xl">
@@ -219,14 +234,18 @@ export default function MISVariancePage() {
                 <th className="p-3 text-right">Contract Baseline</th>
                 <th className="p-3 text-right">Actual Unit Cost</th>
                 
-                {/* 3 Extra Highlighted Columns */}
-                <th className="p-3 text-right bg-amber-200 text-amber-950 font-black border-l border-amber-300">
+                {/* Column 1: Amber Tint */}
+                <th className="p-3 text-right bg-amber-200/90 text-amber-950 font-black border-l-2 border-amber-300">
                   Profit / Loss (Δ)
                 </th>
-                <th className="p-3 text-right bg-amber-200 text-amber-950 font-black">
+                
+                {/* Column 2: Sky Blue Tint */}
+                <th className="p-3 text-right bg-sky-200/90 text-sky-950 font-black border-l border-sky-300">
                   Total Profit / Loss (Δ)
                 </th>
-                <th className="p-3 text-right bg-amber-200 text-amber-950 font-black border-r border-amber-300">
+                
+                {/* Column 3: Orange Tint */}
+                <th className="p-3 text-right bg-orange-200/80 text-orange-950 font-black border-l border-r-2 border-orange-300">
                   Total Sales
                 </th>
                 
@@ -239,7 +258,7 @@ export default function MISVariancePage() {
                 <tr
                   key={row.itemCode}
                   onClick={() => setDrilldownItem(row)}
-                  className="hover:bg-blue-50/50 cursor-pointer transition"
+                  className="hover:bg-slate-50 cursor-pointer transition"
                 >
                   <td className="p-3 font-mono text-slate-500">{row.date}</td>
                   
@@ -263,26 +282,30 @@ export default function MISVariancePage() {
                     ₹ {row.sellingPrice.toFixed(2)}
                   </td>
 
-                  <td className="p-3 text-right font-mono text-slate-600">
+                  <td className="p-3 text-right font-mono text-slate-600 font-bold">
                     ₹ {row.contractBaseline.toFixed(2)}
                   </td>
 
-                  <td className="p-3 text-right font-mono font-bold text-emerald-800">
+                  <td className="p-3 text-right font-mono font-bold text-slate-900">
                     ₹ {row.actualUnitCost.toFixed(2)}
                   </td>
 
-                  {/* 1. Profit / Loss (Δ) */}
-                  <td className="p-3 text-right font-mono font-black bg-amber-50/50 text-slate-900 border-l border-amber-200">
-                    ₹ {row.unitProfitLoss.toFixed(2)}
+                  {/* 1. Unit Profit / Loss (Δ) with +/- Green/Red coloring */}
+                  <td className="p-3 text-right font-mono font-black bg-amber-50/70 border-l-2 border-amber-300">
+                    <span className={row.unitProfitLoss >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
+                      {row.unitProfitLoss >= 0 ? `₹ +${row.unitProfitLoss.toFixed(2)}` : `₹ -${Math.abs(row.unitProfitLoss).toFixed(2)}`}
+                    </span>
                   </td>
 
                   {/* 2. Total Profit / Loss (Δ) */}
-                  <td className="p-3 text-right font-mono font-black bg-amber-50/50 text-slate-900">
-                    ₹ {row.totalProfitLoss.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <td className="p-3 text-right font-mono font-black bg-sky-50/70 border-l border-sky-300">
+                    <span className={row.totalProfitLoss >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
+                      {row.totalProfitLoss >= 0 ? `₹ +${row.totalProfitLoss.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `₹ -${Math.abs(row.totalProfitLoss).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                    </span>
                   </td>
 
                   {/* 3. Total Sales */}
-                  <td className="p-3 text-right font-mono font-black bg-amber-50/50 text-slate-900 border-r border-amber-200">
+                  <td className="p-3 text-right font-mono font-black bg-orange-50/60 text-slate-900 border-l border-r-2 border-orange-300">
                     ₹ {row.totalSales.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
 
@@ -298,11 +321,10 @@ export default function MISVariancePage() {
         </div>
       </div>
 
-      {/* SALES BATCH DRILLDOWN MODAL */}
+      {/* 4. DRILLDOWN MODAL */}
       {drilldownItem && (
         <div className="fixed inset-0 bg-slate-900/75 backdrop-blur-xs flex items-center justify-center p-3 z-50 text-xs">
           <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full p-5 space-y-4 border border-slate-300 animate-in fade-in duration-100">
-            
             <div className="flex justify-between items-start border-b pb-3">
               <div>
                 <span className="px-2.5 py-0.5 bg-blue-600 text-white font-bold rounded-md font-mono text-[11px]">
@@ -331,50 +353,11 @@ export default function MISVariancePage() {
                 <span className="text-[10px] text-slate-500 uppercase font-bold block">Period Qty Sold</span>
                 <span className="text-base font-black font-mono text-slate-900">{drilldownItem.qtySold.toLocaleString()} pcs</span>
               </div>
-              <div className="bg-amber-50 p-3 rounded-xl border border-amber-300">
-                <span className="text-[10px] font-bold uppercase block text-amber-900">Total Profit / Loss</span>
-                <span className="text-base font-black font-mono text-amber-900">
-                  ₹{drilldownItem.totalProfitLoss.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              <div className={`p-3 rounded-xl border ${drilldownItem.totalProfitLoss >= 0 ? 'bg-emerald-50 border-emerald-300' : 'bg-rose-50 border-rose-300'}`}>
+                <span className={`text-[10px] font-bold uppercase block ${drilldownItem.totalProfitLoss >= 0 ? 'text-emerald-900' : 'text-rose-900'}`}>Total Profit / Loss</span>
+                <span className={`text-base font-black font-mono ${drilldownItem.totalProfitLoss >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                  {drilldownItem.totalProfitLoss >= 0 ? `₹ +${drilldownItem.totalProfitLoss.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : `₹ -${Math.abs(drilldownItem.totalProfitLoss).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
                 </span>
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <span className="font-bold text-slate-800 block text-[11px]">Period Invoiced Sales Batches:</span>
-              <div className="border border-slate-200 rounded-xl overflow-hidden">
-                <table className="min-w-full text-xs text-left">
-                  <thead className="bg-slate-100 text-slate-700 font-bold uppercase text-[10px]">
-                    <tr>
-                      <th className="p-2.5">Invoice ID</th>
-                      <th className="p-2.5">Invoice Date</th>
-                      <th className="p-2.5 text-right">Dispatched Qty</th>
-                      <th className="p-2.5 text-right">Selling Price</th>
-                      <th className="p-2.5 text-right">Batch Revenue</th>
-                      <th className="p-2.5 text-right">Batch Profit/Loss (Δ)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 font-medium">
-                    {drilldownItem.salesRecords.map(s => (
-                      <tr key={s.id}>
-                        <td className="p-2.5 font-mono text-blue-700 font-bold">{s.invoiceNo || s.id}</td>
-                        <td className="p-2.5 font-mono text-slate-600">{s.invoiceDate}</td>
-                        <td className="p-2.5 text-right font-mono font-bold text-slate-900">{s.saleUnit?.toLocaleString()} pcs</td>
-                        <td className="p-2.5 text-right font-mono text-slate-700">₹{s.sellingPrice?.toFixed(2)}</td>
-                        <td className="p-2.5 text-right font-mono font-bold text-blue-900">
-                          ₹{(s.saleUnit * s.sellingPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="p-2.5 text-right font-mono font-bold text-emerald-700">
-                          ₹{(s.saleUnit * drilldownItem.unitProfitLoss).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                        </td>
-                      </tr>
-                    ))}
-                    {drilldownItem.salesRecords.length === 0 && (
-                      <tr>
-                        <td colSpan="6" className="p-4 text-center text-slate-400 italic">No sales invoices found within selected period.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
               </div>
             </div>
 
@@ -386,7 +369,6 @@ export default function MISVariancePage() {
                 Close Drilldown
               </button>
             </div>
-
           </div>
         </div>
       )}
@@ -394,3 +376,13 @@ export default function MISVariancePage() {
     </div>
   );
 }
+MIS_PAGE_EOF
+
+# Sync across all module directories
+mkdir -p src/modules/module4-mis src/modules/module1-mis src/modules/module4-mis-gap
+cp /tmp/UnifiedMISPage.jsx src/modules/module4-mis/MISVariancePage.jsx
+[ -f src/modules/module4-mis/MISReportPage.jsx ] && cp /tmp/UnifiedMISPage.jsx src/modules/module4-mis/MISReportPage.jsx || true
+[ -f src/modules/module1-mis/MISVariancePage.jsx ] && cp /tmp/UnifiedMISPage.jsx src/modules/module1-mis/MISVariancePage.jsx || true
+[ -f src/modules/module4-mis-gap/MISGapPage.jsx ] && cp /tmp/UnifiedMISPage.jsx src/modules/module4-mis-gap/MISGapPage.jsx || true
+
+echo "==> Calculation synchronized across Costing Engine, Modals, and MIS."

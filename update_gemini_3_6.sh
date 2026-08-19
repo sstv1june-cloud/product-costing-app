@@ -1,3 +1,7 @@
+#!/usr/bin/env bash
+set -e
+
+cat << 'AI_PAGE_EOF' > src/modules/module5-ai-analyst/AIAnalystPage.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Bot, Sparkles, TrendingUp, TrendingDown, AlertTriangle, 
@@ -523,3 +527,6 @@ Instructions:
     </div>
   );
 }
+AI_PAGE_EOF
+
+echo "==> Model upgraded to gemini-3.6-flash."

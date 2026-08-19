@@ -1,3 +1,7 @@
+#!/usr/bin/env bash
+set -e
+
+cat << 'PAGE_EOF' > /tmp/MISComponent.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   BarChart3, Filter, Calendar, Eye, X, CheckCircle2, TrendingUp, TrendingDown 
@@ -13,7 +17,7 @@ export default function MISVariancePage() {
   const salesData = globalStore.salesData || [];
   const vendors = globalStore.vendors || [];
 
-  // Top Filter State (placed directly above Summary)
+  // Top Filter State
   const [selectedVendor, setSelectedVendor] = useState('Haier');
   const [periodFrom, setPeriodFrom] = useState('2026-08-01');
   const [periodTo, setPeriodTo] = useState('2026-08-31');
@@ -116,7 +120,7 @@ export default function MISVariancePage() {
         </div>
       </div>
 
-      {/* TOP FILTER BAR ABOVE SUMMARY */}
+      {/* 1. TOP FILTER BAR (Placed directly above Summary) */}
       <div className="bg-white p-3.5 rounded-2xl border border-slate-300 shadow-xs flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-4 flex-wrap">
           
@@ -163,11 +167,11 @@ export default function MISVariancePage() {
         </div>
 
         <div className="text-[11px] font-semibold text-slate-500">
-          Filtered for <span className="font-bold text-slate-900">{selectedVendor}</span> ({periodFrom} to {periodTo})
+          Showing filtered records for <span className="font-bold text-slate-900">{selectedVendor}</span>
         </div>
       </div>
 
-      {/* SYNCED SUMMARY CARDS */}
+      {/* 2. SYNCED SUMMARY SECTION */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
         <div className="bg-white border border-slate-300 rounded-2xl p-4 shadow-xs">
           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Period Sales Volume</span>
@@ -199,7 +203,7 @@ export default function MISVariancePage() {
         </div>
       </div>
 
-      {/* TABLE WITH 3 EXTRA COLUMNS */}
+      {/* 3. MAIN MIS TABLE WITH THE 3 EXTRA COLUMNS */}
       <div className="bg-white border border-slate-300 rounded-2xl shadow-sm overflow-hidden p-4 space-y-3">
         <div className="flex justify-between items-center border-b pb-2">
           <h2 className="font-bold text-slate-900 text-sm">Product Sales Realization & Costing Analysis</h2>
@@ -298,7 +302,7 @@ export default function MISVariancePage() {
         </div>
       </div>
 
-      {/* SALES BATCH DRILLDOWN MODAL */}
+      {/* 4. SALES BATCH DRILLDOWN MODAL */}
       {drilldownItem && (
         <div className="fixed inset-0 bg-slate-900/75 backdrop-blur-xs flex items-center justify-center p-3 z-50 text-xs">
           <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full p-5 space-y-4 border border-slate-300 animate-in fade-in duration-100">
@@ -394,3 +398,13 @@ export default function MISVariancePage() {
     </div>
   );
 }
+PAGE_EOF
+
+# Overwrite all module variations
+mkdir -p src/modules/module4-mis src/modules/module1-mis src/modules/module4-mis-gap
+cp /tmp/MISComponent.jsx src/modules/module4-mis/MISVariancePage.jsx
+[ -f src/modules/module4-mis/MISReportPage.jsx ] && cp /tmp/MISComponent.jsx src/modules/module4-mis/MISReportPage.jsx || true
+[ -f src/modules/module1-mis/MISVariancePage.jsx ] && cp /tmp/MISComponent.jsx src/modules/module1-mis/MISVariancePage.jsx || true
+[ -f src/modules/module4-mis-gap/MISGapPage.jsx ] && cp /tmp/MISComponent.jsx src/modules/module4-mis-gap/MISGapPage.jsx || true
+
+echo "==> All MIS route files synchronized."

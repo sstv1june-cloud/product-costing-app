@@ -1,3 +1,7 @@
+#!/usr/bin/env bash
+set -e
+
+cat << 'RM_EOF' > src/modules/module2-rm-matrix/RMPriceMatrixPage.jsx
 import React, { useState, useEffect } from 'react';
 import { 
   Layers, Edit3, Lock, Check, History, Calendar, Upload, Plus, 
@@ -463,3 +467,60 @@ export default function RMPriceMatrixPage() {
     </div>
   );
 }
+RM_EOF
+
+# 2. Update updateVendorScheduleBulk in masterStore.js to accurately record price shifts
+cat << 'STORE_UPDATE_EOF' > /tmp/update_store.js
+import fs from 'fs';
+
+let content = fs.readFileSync('src/shared/masterStore.js', 'utf8');
+
+// Replace updateVendorScheduleBulk with precise logger
+const newFunc = `export const updateVendorScheduleBulk = (vendor, validFrom, validTo, updatedRows) => {
+  const previousRows = (globalStore.rmMatrix || []).filter(r => r.vendor === vendor);
+
+  globalStore.rmMatrix = globalStore.rmMatrix.map(row => {
+    if (row.vendor === vendor) {
+      const match = updatedRows.find(u => u.id === row.id);
+      return match ? { ...match, validFrom, validTo } : { ...row, validFrom, validTo };
+    }
+    return row;
+  });
+
+  // Log each RM update to rmPriceHistoryLogs
+  updatedRows.forEach(uRow => {
+    const prev = previousRows.find(p => p.id === uRow.id);
+    let altText = uRow.activeSelection === 'alt1' ? \`Alternate 1 (\${uRow.alt1?.name || ''})\` : 
+                  uRow.activeSelection === 'alt2' ? \`Alternate 2 (\${uRow.alt2?.name || ''})\` : 
+                  uRow.activeSelection === 'alt3' ? \`Alternate 3 (\${uRow.alt3?.name || ''})\` : 'Primary Approved';
+
+    const priceChanged = Math.abs((prev?.approvedPrice || 0) - (uRow.approvedPrice || 0)) >= 0.01;
+    const note = priceChanged 
+      ? \`Approved price updated from ₹\${(prev?.approvedPrice || uRow.approvedPrice).toFixed(2)} to ₹\${uRow.approvedPrice.toFixed(2)} for period (\${validFrom} to \${validTo})\`
+      : \`Locked period (\${validFrom} to \${validTo}) with \${altText}\`;
+
+    globalStore.rmPriceHistoryLogs.unshift({
+      id: \`LOG-RM-\${Date.now()}-\${Math.random().toString(36).substr(2, 4)}\`,
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+      vendor,
+      rmGrade: uRow.approvedRm,
+      action: priceChanged ? "Approved Price & Period Updated" : "Schedule Locked",
+      period: \`\${validFrom} to \${validTo}\`,
+      previousRate: prev?.approvedPrice || uRow.approvedPrice,
+      newRate: uRow.approvedPrice,
+      activeAlternate: altText,
+      changedBy: "Engineering Head",
+      reason: note
+    });
+  });
+
+  notifyStore();
+};`;
+
+content = content.replace(/export const updateVendorScheduleBulk = [\s\S]*?\n\};/, newFunc);
+fs.writeFileSync('src/shared/masterStore.js', content, 'utf8');
+STORE_UPDATE_EOF
+
+node /tmp/update_store.js
+
+echo "==> Editable Approved Price and RM Audit Trail deployed successfully."

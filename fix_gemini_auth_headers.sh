@@ -1,3 +1,7 @@
+#!/usr/bin/env bash
+set -e
+
+cat << 'AI_PAGE_EOF' > src/modules/module5-ai-analyst/AIAnalystPage.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Bot, Sparkles, TrendingUp, TrendingDown, AlertTriangle, 
@@ -24,11 +28,10 @@ export default function AIAnalystPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [userQuery, setUserQuery] = useState('');
 
-  // Default to Gemini 3.6 Flash
   const [apiProvider, setApiProvider] = useState(localStorage.getItem('ai_analyst_provider') || 'gemini');
   const [geminiKey, setGeminiKey] = useState(localStorage.getItem('ai_gemini_key') || DEFAULT_GEMINI_KEY);
   const [openAiKey, setOpenAiKey] = useState(localStorage.getItem('ai_openai_key') || DEFAULT_OPENAI_KEY);
-  const [geminiModel, setGeminiModel] = useState(localStorage.getItem('ai_gemini_model') || 'gemini-3.6-flash');
+  const [geminiModel, setGeminiModel] = useState(localStorage.getItem('ai_gemini_model') || 'gemini-1.5-flash');
   const [openAiModel, setOpenAiModel] = useState(localStorage.getItem('ai_openai_model') || 'gpt-4o-mini');
 
   const [showConfigModal, setShowConfigModal] = useState(false);
@@ -37,7 +40,7 @@ export default function AIAnalystPage() {
   const [chatLog, setChatLog] = useState([
     {
       sender: 'ai',
-      text: "👋 Welcome to your AI Costing & MIS Analyst. Powered by **Google Gemini 3.6 Flash** & OpenAI GPT-4o with **Strict Read-Only Sandbox Guardrails**. Ask me about product rankings, cycle time drift, or margin leaks."
+      text: "👋 Welcome to your AI Costing & MIS Analyst. Connected to Google Gemini 1.5 & OpenAI GPT-4o with **Strict Read-Only Access**. Ask me about piece costing, latest changes, or margin leakages."
     }
   ]);
 
@@ -135,17 +138,18 @@ Instructions:
 - Use bold numbers and clean Markdown formatting.`;
   };
 
+  // Fixed Multi-Header API Dispatcher
   const executeQuery = async (query) => {
     const systemPrompt = buildReadOnlyContext();
 
     if (apiProvider === 'gemini') {
       const activeKey = geminiKey.trim() || DEFAULT_GEMINI_KEY;
-      const cleanModel = (geminiModel || 'gemini-3.6-flash').replace('models/', '');
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${activeKey}`;
+      const modelName = geminiModel.replace('models/', '') || 'gemini-1.5-flash';
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
 
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'x-goog-api-key': activeKey
         },
@@ -157,27 +161,23 @@ Instructions:
       });
 
       if (!response.ok) {
-        if (openAiKey) {
-          const fbResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${openAiKey.trim()}`
-            },
-            body: JSON.stringify({
-              model: 'gpt-4o-mini',
-              messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: query }
-              ],
-              temperature: 0.2
-            })
-          });
-          if (fbResponse.ok) {
-            const fbData = await fbResponse.json();
-            return `*(Answered via OpenAI GPT-4o Fallback)*\n\n` + fbData.choices[0]?.message?.content;
-          }
+        // Direct failover fallback using query string format if header method fails
+        const fallbackEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
+        const fbResponse = await fetch(fallbackEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [
+              { role: 'user', parts: [{ text: `${systemPrompt}\n\nUser Question: ${query}` }] }
+            ]
+          })
+        });
+
+        if (fbResponse.ok) {
+          const fbData = await fbResponse.json();
+          return fbData.candidates[0]?.content?.parts[0]?.text;
         }
+
         const errData = await response.json().catch(() => ({}));
         throw new Error(errData.error?.message || `Gemini request failed (${response.status})`);
       }
@@ -185,6 +185,7 @@ Instructions:
       const data = await response.json();
       return data.candidates[0]?.content?.parts[0]?.text;
     } else {
+      // OpenAI Engine
       const activeKey = openAiKey.trim() || DEFAULT_OPENAI_KEY;
       const model = openAiModel || 'gpt-4o-mini';
 
@@ -231,7 +232,7 @@ Instructions:
         ...prev,
         {
           sender: 'ai',
-          text: `⚠️ **API Error (${apiProvider.toUpperCase()}):** ${err.message}\n\nYou can switch to **OpenAI (GPT-4o)** using the Settings button above.`
+          text: `⚠️ **API Error (${apiProvider.toUpperCase()}):** ${err.message}\n\nTip: You can switch to **OpenAI (GPT-4o)** using the Settings button above.`
         }
       ]);
     } finally {
@@ -247,7 +248,7 @@ Instructions:
     localStorage.setItem('ai_openai_key', openAiKey.trim());
     localStorage.setItem('ai_openai_model', openAiModel);
 
-    setSaveSuccessMsg('AI settings updated successfully.');
+    setSaveSuccessMsg('AI settings saved successfully.');
     setTimeout(() => {
       setSaveSuccessMsg(null);
       setShowConfigModal(false);
@@ -270,7 +271,7 @@ Instructions:
                 <Lock className="w-3 h-3" /> Read-Only Sandbox
               </span>
             </div>
-            <p className="text-[11px] text-slate-300">Multi-Model Engine (Google Gemini 3.6 Flash & OpenAI GPT-4o)</p>
+            <p className="text-[11px] text-slate-300">Multi-Model Engine (Google Gemini 1.5 & OpenAI GPT-4o)</p>
           </div>
         </div>
 
@@ -344,7 +345,7 @@ Instructions:
             <h2 className="font-bold text-slate-900 text-sm">Ask AI Costing Analyst</h2>
           </div>
           <span className="text-[10px] text-purple-700 font-bold bg-purple-50 border border-purple-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-            <Sparkles className="w-3 h-3 text-purple-600" /> Live {apiProvider === 'gemini' ? 'Gemini 3.6 Flash' : 'OpenAI GPT-4o'} Active
+            <Sparkles className="w-3 h-3 text-purple-600" /> Live {apiProvider === 'gemini' ? 'Gemini 1.5' : 'OpenAI GPT-4o'} Active
           </span>
         </div>
 
@@ -441,7 +442,7 @@ Instructions:
                       apiProvider === 'gemini' ? 'bg-purple-50 border-purple-600 text-purple-900' : 'bg-slate-50 border-slate-200 text-slate-700'
                     }`}
                   >
-                    Google Gemini 3.6 Flash
+                    Google Gemini API
                   </button>
                   <button
                     type="button"
@@ -459,7 +460,7 @@ Instructions:
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
                 <div className="font-bold text-slate-900 flex items-center justify-between">
                   <span>Google Gemini Setup</span>
-                  <span className="text-[10px] text-emerald-700 font-bold bg-emerald-100 px-2 py-0.5 rounded">gemini-3.6-flash Active</span>
+                  <span className="text-[10px] text-slate-500">Header-Auth Enabled</span>
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 uppercase block">Gemini API Key</label>
@@ -478,7 +479,8 @@ Instructions:
                     onChange={e => setGeminiModel(e.target.value)}
                     className="w-full border bg-white p-1.5 rounded-lg text-xs font-semibold mt-0.5 outline-none"
                   >
-                    <option value="gemini-3.6-flash">gemini-3.6-flash (Recommended)</option>
+                    <option value="gemini-1.5-flash">gemini-1.5-flash (Fast & Accurate)</option>
+                    <option value="gemini-1.5-pro">gemini-1.5-pro (High Reasoning)</option>
                   </select>
                 </div>
               </div>
@@ -523,3 +525,6 @@ Instructions:
     </div>
   );
 }
+AI_PAGE_EOF
+
+echo "==> Gemini header authentication & failover updated."

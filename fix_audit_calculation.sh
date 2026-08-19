@@ -1,3 +1,8 @@
+#!/usr/bin/env bash
+set -e
+
+# Update updateBaselineParameters in masterStore.js to evaluate full 38-line calculation
+cat << 'STORE_EOF' > src/shared/masterStore.js
 import { initialBaselineData } from '../modules/module1-baseline/baselineData';
 import { calculateDetailedCost } from '../modules/module1-baseline/InlineEditModal';
 
@@ -230,8 +235,6 @@ export const getActiveRmMapping = (approvedRmName, vendor = "Haier", targetDate 
 };
 
 export const updateVendorScheduleBulk = (vendor, validFrom, validTo, updatedRows) => {
-  const previousRows = (globalStore.rmMatrix || []).filter(r => r.vendor === vendor);
-
   globalStore.rmMatrix = globalStore.rmMatrix.map(row => {
     if (row.vendor === vendor) {
       const match = updatedRows.find(u => u.id === row.id);
@@ -239,34 +242,6 @@ export const updateVendorScheduleBulk = (vendor, validFrom, validTo, updatedRows
     }
     return row;
   });
-
-  // Log each RM update to rmPriceHistoryLogs
-  updatedRows.forEach(uRow => {
-    const prev = previousRows.find(p => p.id === uRow.id);
-    let altText = uRow.activeSelection === 'alt1' ? `Alternate 1 (${uRow.alt1?.name || ''})` : 
-                  uRow.activeSelection === 'alt2' ? `Alternate 2 (${uRow.alt2?.name || ''})` : 
-                  uRow.activeSelection === 'alt3' ? `Alternate 3 (${uRow.alt3?.name || ''})` : 'Primary Approved';
-
-    const priceChanged = Math.abs((prev?.approvedPrice || 0) - (uRow.approvedPrice || 0)) >= 0.01;
-    const note = priceChanged 
-      ? `Approved price updated from ₹${(prev?.approvedPrice || uRow.approvedPrice).toFixed(2)} to ₹${uRow.approvedPrice.toFixed(2)} for period (${validFrom} to ${validTo})`
-      : `Locked period (${validFrom} to ${validTo}) with ${altText}`;
-
-    globalStore.rmPriceHistoryLogs.unshift({
-      id: `LOG-RM-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
-      vendor,
-      rmGrade: uRow.approvedRm,
-      action: priceChanged ? "Approved Price & Period Updated" : "Schedule Locked",
-      period: `${validFrom} to ${validTo}`,
-      previousRate: prev?.approvedPrice || uRow.approvedPrice,
-      newRate: uRow.approvedPrice,
-      activeAlternate: altText,
-      changedBy: "Engineering Head",
-      reason: note
-    });
-  });
-
   notifyStore();
 };
 
@@ -396,3 +371,6 @@ export const uploadBulkSales = (newSales) => {
 };
 
 export default globalStore;
+STORE_EOF
+
+echo "==> Audit Log 38-line costing synchronization deployed."

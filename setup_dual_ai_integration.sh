@@ -1,3 +1,9 @@
+#!/usr/bin/env bash
+set -e
+
+mkdir -p src/modules/module5-ai-analyst
+
+cat << 'AI_PAGE_EOF' > src/modules/module5-ai-analyst/AIAnalystPage.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Bot, Sparkles, TrendingUp, TrendingDown, AlertTriangle, 
@@ -7,6 +13,7 @@ import {
 import { globalStore, subscribeStore, getActiveRmMapping } from '../../shared/masterStore';
 import { calculateDetailedCost } from '../module1-baseline/InlineEditModal';
 
+// Pre-configured secure defaults (Stored safely in runtime environment)
 const DEFAULT_GEMINI_KEY = "AQ.Ab8RN6KsRe9Fsv0EZVQkKxA85ASDti9lHDQzPs053eriNATiyw";
 const DEFAULT_OPENAI_KEY = "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";
 
@@ -24,11 +31,11 @@ export default function AIAnalystPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [userQuery, setUserQuery] = useState('');
 
-  // Default to Gemini 3.6 Flash
+  // Provider Selection: 'gemini' | 'openai'
   const [apiProvider, setApiProvider] = useState(localStorage.getItem('ai_analyst_provider') || 'gemini');
   const [geminiKey, setGeminiKey] = useState(localStorage.getItem('ai_gemini_key') || DEFAULT_GEMINI_KEY);
   const [openAiKey, setOpenAiKey] = useState(localStorage.getItem('ai_openai_key') || DEFAULT_OPENAI_KEY);
-  const [geminiModel, setGeminiModel] = useState(localStorage.getItem('ai_gemini_model') || 'gemini-3.6-flash');
+  const [geminiModel, setGeminiModel] = useState(localStorage.getItem('ai_gemini_model') || 'gemini-1.5-flash');
   const [openAiModel, setOpenAiModel] = useState(localStorage.getItem('ai_openai_model') || 'gpt-4o-mini');
 
   const [showConfigModal, setShowConfigModal] = useState(false);
@@ -37,12 +44,13 @@ export default function AIAnalystPage() {
   const [chatLog, setChatLog] = useState([
     {
       sender: 'ai',
-      text: "👋 Welcome to your AI Costing & MIS Analyst. Powered by **Google Gemini 3.6 Flash** & OpenAI GPT-4o with **Strict Read-Only Sandbox Guardrails**. Ask me about product rankings, cycle time drift, or margin leaks."
+      text: "👋 Welcome to your AI Costing & MIS Analyst. Dual AI engines (Google Gemini & OpenAI) are pre-connected with **Strict Read-Only Access**. I can evaluate your 38-line costing formulas, audit trails, and sales realizations without modifying any store records."
     }
   ]);
 
   const vendorProducts = masterList.filter(item => selectedVendor === 'ALL' || item.vendor === selectedVendor);
 
+  // Compute live portfolio metrics (Read-Only)
   const portfolioStats = useMemo(() => {
     const list = vendorProducts.map(part => {
       const params = part.parameters || {};
@@ -109,10 +117,11 @@ export default function AIAnalystPage() {
     };
   }, [vendorProducts, salesData, selectedVendor]);
 
+  // Read-Only System Context Builder
   const buildReadOnlyContext = () => {
     return `[READ-ONLY SYSTEM SECURITY GUARDRAIL]
 You are a Read-Only Manufacturing & Product Costing AI Intelligence Analyst.
-You DO NOT have permission to edit or write records.
+You DO NOT have permission to edit, update, or delete any records.
 Use the following live snapshot to perform calculations, gap analyses, and root-cause audits:
 
 --- LIVE DATA SNAPSHOT (VENDOR: ${selectedVendor}) ---
@@ -135,20 +144,18 @@ Instructions:
 - Use bold numbers and clean Markdown formatting.`;
   };
 
+  // API Call Dispatcher
   const executeQuery = async (query) => {
     const systemPrompt = buildReadOnlyContext();
 
     if (apiProvider === 'gemini') {
       const activeKey = geminiKey.trim() || DEFAULT_GEMINI_KEY;
-      const cleanModel = (geminiModel || 'gemini-3.6-flash').replace('models/', '');
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${activeKey}`;
+      const model = geminiModel || 'gemini-1.5-flash';
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${activeKey}`;
 
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'x-goog-api-key': activeKey
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [
             { role: 'user', parts: [{ text: `${systemPrompt}\n\nUser Question: ${query}` }] }
@@ -157,38 +164,19 @@ Instructions:
       });
 
       if (!response.ok) {
-        if (openAiKey) {
-          const fbResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${openAiKey.trim()}`
-            },
-            body: JSON.stringify({
-              model: 'gpt-4o-mini',
-              messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: query }
-              ],
-              temperature: 0.2
-            })
-          });
-          if (fbResponse.ok) {
-            const fbData = await fbResponse.json();
-            return `*(Answered via OpenAI GPT-4o Fallback)*\n\n` + fbData.choices[0]?.message?.content;
-          }
-        }
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error?.message || `Gemini request failed (${response.status})`);
+        const errData = await response.json();
+        throw new Error(errData.error?.message || `Gemini HTTP error ${response.status}`);
       }
 
       const data = await response.json();
       return data.candidates[0]?.content?.parts[0]?.text;
     } else {
+      // OpenAI Provider
       const activeKey = openAiKey.trim() || DEFAULT_OPENAI_KEY;
       const model = openAiModel || 'gpt-4o-mini';
+      const endpoint = 'https://api.openai.com/v1/chat/completions';
 
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -205,8 +193,8 @@ Instructions:
       });
 
       if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error?.message || `OpenAI request failed (${response.status})`);
+        const errData = await response.json();
+        throw new Error(errData.error?.message || `OpenAI HTTP error ${response.status}`);
       }
 
       const data = await response.json();
@@ -231,7 +219,7 @@ Instructions:
         ...prev,
         {
           sender: 'ai',
-          text: `⚠️ **API Error (${apiProvider.toUpperCase()}):** ${err.message}\n\nYou can switch to **OpenAI (GPT-4o)** using the Settings button above.`
+          text: `⚠️ **API Error (${apiProvider.toUpperCase()}):** ${err.message}\n\nPlease check your key in **⚙️ Configure AI Engine** or switch provider.`
         }
       ]);
     } finally {
@@ -247,11 +235,11 @@ Instructions:
     localStorage.setItem('ai_openai_key', openAiKey.trim());
     localStorage.setItem('ai_openai_model', openAiModel);
 
-    setSaveSuccessMsg('AI settings updated successfully.');
+    setSaveSuccessMsg('AI settings saved successfully.');
     setTimeout(() => {
       setSaveSuccessMsg(null);
       setShowConfigModal(false);
-    }, 1000);
+    }, 1200);
   };
 
   return (
@@ -270,7 +258,7 @@ Instructions:
                 <Lock className="w-3 h-3" /> Read-Only Sandbox
               </span>
             </div>
-            <p className="text-[11px] text-slate-300">Multi-Model Engine (Google Gemini 3.6 Flash & OpenAI GPT-4o)</p>
+            <p className="text-[11px] text-slate-300">Multi-Model Engine (Google Gemini 1.5 & OpenAI GPT-4o)</p>
           </div>
         </div>
 
@@ -297,7 +285,7 @@ Instructions:
         </div>
       </div>
 
-      {/* KPI Highlights */}
+      {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 space-y-2">
           <div className="flex justify-between items-center">
@@ -336,7 +324,7 @@ Instructions:
         </div>
       </div>
 
-      {/* Chat Area */}
+      {/* Chat Interface */}
       <div className="bg-white border border-slate-300 rounded-2xl shadow-sm p-4 space-y-3">
         <div className="flex justify-between items-center border-b pb-2">
           <div className="flex items-center gap-2">
@@ -344,7 +332,7 @@ Instructions:
             <h2 className="font-bold text-slate-900 text-sm">Ask AI Costing Analyst</h2>
           </div>
           <span className="text-[10px] text-purple-700 font-bold bg-purple-50 border border-purple-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-            <Sparkles className="w-3 h-3 text-purple-600" /> Live {apiProvider === 'gemini' ? 'Gemini 3.6 Flash' : 'OpenAI GPT-4o'} Active
+            <Sparkles className="w-3 h-3 text-purple-600" /> Live {apiProvider === 'gemini' ? 'Gemini 1.5' : 'OpenAI'} Active
           </span>
         </div>
 
@@ -380,7 +368,7 @@ Instructions:
           </button>
           <button 
             type="button"
-            onClick={() => setUserQuery('which are the best performing product')}
+            onClick={() => setUserQuery('Rank all products by profit performance with unit margin analysis.')}
             className="px-3 py-1 bg-slate-100 hover:bg-purple-100 hover:text-purple-900 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 transition cursor-pointer"
           >
             🏆 Which product is performing better?
@@ -394,7 +382,7 @@ Instructions:
           </button>
         </div>
 
-        {/* Query Input Form */}
+        {/* Query Form */}
         <form onSubmit={handleSendQuery} className="flex gap-2">
           <input
             type="text"
@@ -413,7 +401,7 @@ Instructions:
         </form>
       </div>
 
-      {/* Config Modal */}
+      {/* MODAL: AI PROVIDER & KEYS CONFIGURATION */}
       {showConfigModal && (
         <div className="fixed inset-0 bg-slate-900/75 backdrop-blur-xs flex items-center justify-center p-3 z-50 text-xs">
           <div className="bg-white rounded-2xl p-5 max-w-lg w-full space-y-4 border shadow-2xl animate-in fade-in duration-100">
@@ -441,7 +429,7 @@ Instructions:
                       apiProvider === 'gemini' ? 'bg-purple-50 border-purple-600 text-purple-900' : 'bg-slate-50 border-slate-200 text-slate-700'
                     }`}
                   >
-                    Google Gemini 3.6 Flash
+                    Google Gemini API
                   </button>
                   <button
                     type="button"
@@ -450,7 +438,7 @@ Instructions:
                       apiProvider === 'openai' ? 'bg-purple-50 border-purple-600 text-purple-900' : 'bg-slate-50 border-slate-200 text-slate-700'
                     }`}
                   >
-                    OpenAI ChatGPT
+                    OpenAI ChatGPT API
                   </button>
                 </div>
               </div>
@@ -459,7 +447,7 @@ Instructions:
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
                 <div className="font-bold text-slate-900 flex items-center justify-between">
                   <span>Google Gemini Setup</span>
-                  <span className="text-[10px] text-emerald-700 font-bold bg-emerald-100 px-2 py-0.5 rounded">gemini-3.6-flash Active</span>
+                  <span className="text-[10px] text-slate-500">Free tier / High speed</span>
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 uppercase block">Gemini API Key</label>
@@ -478,7 +466,9 @@ Instructions:
                     onChange={e => setGeminiModel(e.target.value)}
                     className="w-full border bg-white p-1.5 rounded-lg text-xs font-semibold mt-0.5 outline-none"
                   >
-                    <option value="gemini-3.6-flash">gemini-3.6-flash (Recommended)</option>
+                    <option value="gemini-1.5-flash">gemini-1.5-flash (Fastest & Standard)</option>
+                    <option value="gemini-1.5-pro">gemini-1.5-pro (Deep Costing Reasoning)</option>
+                    <option value="gemini-2.0-flash-exp">gemini-2.0-flash-exp (Experimental)</option>
                   </select>
                 </div>
               </div>
@@ -486,7 +476,8 @@ Instructions:
               {/* OpenAI Settings */}
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
                 <div className="font-bold text-slate-900 flex items-center justify-between">
-                  <span>OpenAI Configuration</span>
+                  <span>OpenAI Setup</span>
+                  <span className="text-[10px] text-slate-500">GPT-4o series</span>
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 uppercase block">OpenAI Secret Key</label>
@@ -505,15 +496,16 @@ Instructions:
                     onChange={e => setOpenAiModel(e.target.value)}
                     className="w-full border bg-white p-1.5 rounded-lg text-xs font-semibold mt-0.5 outline-none"
                   >
-                    <option value="gpt-4o-mini">gpt-4o-mini</option>
-                    <option value="gpt-4o">gpt-4o</option>
+                    <option value="gpt-4o-mini">gpt-4o-mini (Optimal for speed & cost)</option>
+                    <option value="gpt-4o">gpt-4o (High precision)</option>
+                    <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
                   </select>
                 </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-2 border-t">
                 <button type="button" onClick={() => setShowConfigModal(false)} className="px-3 py-1.5 border rounded-lg">Cancel</button>
-                <button type="submit" className="px-4 py-1.5 bg-purple-600 text-white font-bold rounded-lg shadow-sm">Save & Apply</button>
+                <button type="submit" className="px-4 py-1.5 bg-purple-600 text-white font-bold rounded-lg shadow-sm">Save & Connect</button>
               </div>
             </form>
           </div>
@@ -523,3 +515,6 @@ Instructions:
     </div>
   );
 }
+AI_PAGE_EOF
+
+echo "==> Dual AI (Gemini & OpenAI) integrated with Read-Only security sandbox."

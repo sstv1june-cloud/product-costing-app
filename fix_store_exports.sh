@@ -1,5 +1,8 @@
+#!/usr/bin/env bash
+set -e
+
+cat << 'STORE_EOF' > src/shared/masterStore.js
 import { initialBaselineData } from '../modules/module1-baseline/baselineData';
-import { calculateDetailedCost } from '../modules/module1-baseline/InlineEditModal';
 
 const initialData = Array.isArray(initialBaselineData) ? initialBaselineData : [];
 
@@ -58,6 +61,7 @@ export const globalStore = {
 
   baselineList: initialData,
   baselineData: initialData,
+  baselineProducts: initialData,
 
   purchaseMaster: [
     { code: "PUR-ABS-01", invoiceNo: "INV-PUR-8821", name: "ABS 300-B Red (Prime Inward)", polymer: "ABS", supplier: "Supreme Petrochem", waPrice: 134.80, inwardDate: "2026-08-01", qtyKg: 12500 },
@@ -96,23 +100,7 @@ export const globalStore = {
     }
   ],
 
-  parameterChangeLogs: [
-    {
-      id: "LOG-PARAM-001",
-      timestamp: "2026-08-19 06:37:43",
-      itemCode: "0060217989D",
-      componentName: "End cap Bottom Ref-ABS-DC-195,220",
-      vendor: "Haier",
-      changedBy: "Engineering Head",
-      field: "Cycle Time & Runner Tuning",
-      changesList: [
-        { parameter: "Cycle Time", oldVal: "48.0 s", newVal: "40.0 s", diff: "-8.0 s" },
-        { parameter: "Runner Weight", oldVal: "40.0 g", newVal: "45.0 g", diff: "+5.0 g" }
-      ],
-      costImpact: { oldCost: 36.28, newCost: 36.14, diff: -0.14 },
-      reason: "Internal parameter optimization"
-    }
-  ],
+  parameterChangeLogs: [],
   rmPriceHistoryLogs: []
 };
 
@@ -229,9 +217,7 @@ export const getActiveRmMapping = (approvedRmName, vendor = "Haier", targetDate 
   };
 };
 
-export const updateVendorScheduleBulk = (vendor, validFrom, validTo, updatedRows) => {
-  const previousRows = (globalStore.rmMatrix || []).filter(r => r.vendor === vendor);
-
+export const updateVendorScheduleBulk = (vendor, validFrom, validTo, updatedRows, logEntries = []) => {
   globalStore.rmMatrix = globalStore.rmMatrix.map(row => {
     if (row.vendor === vendor) {
       const match = updatedRows.find(u => u.id === row.id);
@@ -240,112 +226,26 @@ export const updateVendorScheduleBulk = (vendor, validFrom, validTo, updatedRows
     return row;
   });
 
-  // Log each RM update to rmPriceHistoryLogs
-  updatedRows.forEach(uRow => {
-    const prev = previousRows.find(p => p.id === uRow.id);
-    let altText = uRow.activeSelection === 'alt1' ? `Alternate 1 (${uRow.alt1?.name || ''})` : 
-                  uRow.activeSelection === 'alt2' ? `Alternate 2 (${uRow.alt2?.name || ''})` : 
-                  uRow.activeSelection === 'alt3' ? `Alternate 3 (${uRow.alt3?.name || ''})` : 'Primary Approved';
-
-    const priceChanged = Math.abs((prev?.approvedPrice || 0) - (uRow.approvedPrice || 0)) >= 0.01;
-    const note = priceChanged 
-      ? `Approved price updated from ₹${(prev?.approvedPrice || uRow.approvedPrice).toFixed(2)} to ₹${uRow.approvedPrice.toFixed(2)} for period (${validFrom} to ${validTo})`
-      : `Locked period (${validFrom} to ${validTo}) with ${altText}`;
-
-    globalStore.rmPriceHistoryLogs.unshift({
-      id: `LOG-RM-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
-      vendor,
-      rmGrade: uRow.approvedRm,
-      action: priceChanged ? "Approved Price & Period Updated" : "Schedule Locked",
-      period: `${validFrom} to ${validTo}`,
-      previousRate: prev?.approvedPrice || uRow.approvedPrice,
-      newRate: uRow.approvedPrice,
-      activeAlternate: altText,
-      changedBy: "Engineering Head",
-      reason: note
+  if (logEntries && logEntries.length > 0) {
+    logEntries.forEach(log => {
+      globalStore.rmPriceHistoryLogs.unshift({
+        id: `HIST-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+        ...log
+      });
     });
-  });
-
+  }
   notifyStore();
 };
 
-// Precise Full 38-Line Cost Calculation for Audit Log
 export const updateBaselineParameters = ({ itemId, updatedItem, changeType, newValidFrom, reason } = {}) => {
   const list = globalStore.baselineList || [];
   const idx = list.findIndex(p => p.id === itemId || p.itemCode === (updatedItem?.itemCode));
   if (idx !== -1) {
     const prev = list[idx];
-    const prevParams = prev.parameters || {};
-    const newParams = updatedItem?.parameters || {};
-
-    const changesList = [];
-
-    const oldCycle = Number(prev.cycleTimeApproved ?? prev.cycleTime ?? 48);
-    const newCycle = Number(newParams.runningCycleTime ?? updatedItem.cycleTimeApproved ?? updatedItem.cycleTime ?? oldCycle);
-    if (Math.abs(oldCycle - newCycle) >= 0.01) {
-      const d = Number((newCycle - oldCycle).toFixed(1));
-      changesList.push({ parameter: "Cycle Time", oldVal: `${oldCycle} s`, newVal: `${newCycle} s`, diff: `${d > 0 ? '+' : ''}${d} s` });
-    }
-
-    const oldRunner = Number(prev.runnerWeight ?? prevParams.runnerWeight ?? 40);
-    const newRunner = Number(newParams.runningRunnerWeight ?? updatedItem.runnerWeight ?? oldRunner);
-    if (Math.abs(oldRunner - newRunner) >= 0.01) {
-      const d = Number((newRunner - oldRunner).toFixed(1));
-      changesList.push({ parameter: "Runner Weight", oldVal: `${oldRunner} g`, newVal: `${newRunner} g`, diff: `${d > 0 ? '+' : ''}${d} g` });
-    }
-
-    const oldNet = Number(prev.netWeight ?? prevParams.netWeightApproved ?? 197);
-    const newNet = Number(newParams.runningNetWeight ?? updatedItem.netWeight ?? oldNet);
-    if (Math.abs(oldNet - newNet) >= 0.01) {
-      const d = Number((newNet - oldNet).toFixed(1));
-      changesList.push({ parameter: "Net Weight", oldVal: `${oldNet} g`, newVal: `${newNet} g`, diff: `${d > 0 ? '+' : ''}${d} g` });
-    }
-
-    const oldTonnage = Number(prev.machineTonnage ?? prevParams.machineTonnage ?? 450);
-    const newTonnage = Number(newParams.runningTonnage ?? updatedItem.machineTonnage ?? oldTonnage);
-    if (oldTonnage !== newTonnage) {
-      const d = newTonnage - oldTonnage;
-      changesList.push({ parameter: "Machine Tonnage", oldVal: `${oldTonnage} T`, newVal: `${newTonnage} T`, diff: `${d > 0 ? '+' : ''}${d} T` });
-    }
-
-    // Run exact 38-line calculateDetailedCost
-    const rmMapping = getActiveRmMapping(prev.approvedRm, prev.vendor, '2026-08-01');
-    const baselineCalc = calculateDetailedCost({
-      cavity: Number(prev.cavity ?? prevParams.cavity ?? 2),
-      netWeight: oldNet,
-      runnerWeight: oldRunner,
-      rmRate: rmMapping.approvedPrice || 136.20,
-      masterbatchPct: 0,
-      masterbatchRate: 0,
-      machineTonnage: oldTonnage,
-      shiftTariff: Number(prev.hourlyRate ? prev.hourlyRate * 8 : 3600),
-      cycleTime: oldCycle
-    }, true);
-
-    const runningCalc = calculateDetailedCost({
-      cavity: Number(newParams.runningCavity ?? baselineCalc.cavity ?? 2),
-      netWeight: newNet,
-      runnerWeight: newRunner,
-      rmRate: rmMapping.activeWaPrice || 134.80,
-      masterbatchPct: 0,
-      masterbatchRate: 0,
-      machineTonnage: newTonnage,
-      shiftTariff: Number(newParams.runningShiftTariff ?? (newTonnage >= 600 ? 4800 : 3600)),
-      cycleTime: newCycle
-    }, false);
-
-    const oldCost = Number(baselineCalc.totalCost.toFixed(2));
-    const newCost = Number(runningCalc.totalCost.toFixed(2));
-    const costDelta = Number((newCost - oldCost).toFixed(2));
-
     globalStore.baselineList[idx] = {
       ...prev,
       ...updatedItem,
-      parameters: {
-        ...prevParams,
-        ...newParams
-      },
       validFrom: newValidFrom || prev.validFrom
     };
 
@@ -357,31 +257,23 @@ export const updateBaselineParameters = ({ itemId, updatedItem, changeType, newV
       }
     }
 
-    // Record verified audit log entry
-    globalStore.parameterChangeLogs.unshift({
-      id: `LOG-PARAM-${Date.now()}`,
-      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
-      itemCode: updatedItem?.itemCode || prev.itemCode,
-      componentName: updatedItem?.componentName || prev.componentName,
-      vendor: v,
-      changedBy: "Engineering Head",
-      field: changeType || "Shopfloor Parameter Tuning",
-      changesList: changesList.length > 0 ? changesList : [{ parameter: "Spec Update", oldVal: "Base", newVal: "Running", diff: "Updated" }],
-      costImpact: { oldCost, newCost, diff: costDelta },
-      reason: reason || "Internal parameter optimization"
-    });
-
     notifyStore();
   }
 };
 
 export const addManualPurchaseRecord = (record) => {
-  globalStore.purchaseMaster.unshift({ code: `PUR-${Date.now()}`, ...record });
+  globalStore.purchaseMaster.unshift({
+    code: `PUR-${Date.now()}`,
+    ...record
+  });
   notifyStore();
 };
 
 export const addManualSaleRecord = (record) => {
-  globalStore.salesData.unshift({ id: `INV-SLS-${Date.now()}`, ...record });
+  globalStore.salesData.unshift({
+    id: `INV-SLS-${Date.now()}`,
+    ...record
+  });
   notifyStore();
 };
 
@@ -395,4 +287,13 @@ export const uploadBulkSales = (newSales) => {
   notifyStore();
 };
 
+export const getVendorRmCosting = (vendorCode, rmCode) => {
+  const res = getActiveRmMapping(rmCode, vendorCode);
+  return res.activeWaPrice;
+};
+
+export { initialData as baselineList, initialData as baselineData, initialData as baselineProducts };
 export default globalStore;
+STORE_EOF
+
+echo "==> MasterStore exports restored successfully."
