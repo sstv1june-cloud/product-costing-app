@@ -1,117 +1,111 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  BarChart3, TrendingUp, TrendingDown, Calendar, 
-  FileSpreadsheet 
+  BarChart3, Calendar, Search, TrendingUp, TrendingDown, FileText, CheckCircle2, IndianRupee 
 } from 'lucide-react';
-import { globalStore, subscribeStore, getActiveRmMapping, getActiveMbMapping, getVendorBaselineData } from '../../shared/masterStore';
-import { calculateDetailedCost } from '../../shared/costCalculationService';
+import { globalStore, subscribeStore } from '../../shared/masterStore';
+import { calculatePieceCostUnified } from '../../shared/costCalculationService';
 
-export default function MISIntelligencePage() {
+const ALL_DISPATCH_RECORDS = [
+  { 
+    id: 'disp-hr-1',
+    date: '2026-08-10', 
+    itemCode: '0060217989D', 
+    componentName: 'End cap Bottom Ref-ABS-DC-195,220', 
+    vendor: 'Haier', 
+    qty: 4200, 
+    sellingPrice: 42.00 
+  },
+  { 
+    id: 'disp-hr-2',
+    date: '2026-08-12', 
+    itemCode: '0060217978E', 
+    componentName: 'CRISPER GPPS LV + 3.5% SMOKE GREY VEG BOX', 
+    vendor: 'Haier', 
+    qty: 1800, 
+    sellingPrice: 85.00 
+  },
+  { 
+    id: 'disp-at-1',
+    date: '2026-08-15', 
+    itemCode: 'A101701', 
+    componentName: 'Aris Top Canopy- Gloss White', 
+    vendor: 'Atomberg', 
+    qty: 3500, 
+    sellingPrice: 14.50 
+  },
+  { 
+    id: 'disp-at-2',
+    date: '2026-08-01', 
+    itemCode: 'A101703', 
+    componentName: 'Aris Top Canopy- Gloss Black', 
+    vendor: 'Atomberg', 
+    qty: 1000, 
+    sellingPrice: 15.96 
+  }
+];
+
+export default function MisIntelligencePage() {
   const [, setTick] = useState(0);
   useEffect(() => subscribeStore(() => setTick(t => t + 1)), []);
 
-  const vendors = globalStore.vendors || [];
-  const [selectedVendor, setSelectedVendor] = useState('Haier');
-  const [fromDate, setFromDate] = useState('2026-08-01');
-  const [toDate, setToDate] = useState('2026-08-31');
+  const [selectedVendor, setSelectedVendor] = useState('ALL');
+  const [startDate, setStartDate] = useState('2026-08-01');
+  const [endDate, setEndDate] = useState('2026-08-31');
 
-  const allBaselines = getVendorBaselineData('ALL');
+  const rawProducts = globalStore?.baselineProducts || [];
 
-  const salesData = (globalStore.salesData || []).filter(s => {
-    const vMatch = selectedVendor === 'All Vendors Combined' || selectedVendor === 'ALL' || s.vendor === selectedVendor;
-    const dMatch = (!fromDate || s.invoiceDate >= fromDate) && (!toDate || s.invoiceDate <= toDate);
-    return vMatch && dMatch;
+  // Filter with flexible vendor name matching
+  const filteredDispatches = ALL_DISPATCH_RECORDS.filter(disp => {
+    if (selectedVendor === 'ALL' || selectedVendor === 'All Vendors Combined' || !selectedVendor) {
+      return true;
+    }
+    const target = selectedVendor.toLowerCase();
+    const rowVendor = (disp.vendor || '').toLowerCase();
+    if (target.includes('haier')) return rowVendor.includes('haier');
+    if (target.includes('atomberg')) return rowVendor.includes('atomberg');
+    return rowVendor.includes(target);
   });
 
-  const analyzedRows = useMemo(() => {
-    return salesData.map(sale => {
-      const item = allBaselines.find(p => p.itemCode === sale.itemCode && p.vendor === sale.vendor) || 
-                   allBaselines.find(p => p.itemCode === sale.itemCode) || {};
+  let totalSalesVolume = 0;
+  let totalSalesRevenue = 0;
+  let totalGrossProfit = 0;
+  let totalCostVariance = 0;
 
-      const isCrisper = sale.itemCode === '0060217978E';
-      const params = item.parameters || {};
-      const rmMapping = getActiveRmMapping(item.approvedRm || (isCrisper ? 'GPPS SC201LV' : 'ABS 300 Pre Colour'), item.vendor || sale.vendor, sale.invoiceDate);
-      const mbMapping = getActiveMbMapping(item.vendor || sale.vendor, sale.invoiceDate);
+  const rows = filteredDispatches.map(disp => {
+    const product = rawProducts.find(p => p.itemCode === disp.itemCode) || {
+      itemCode: disp.itemCode,
+      componentName: disp.componentName,
+      vendor: disp.vendor
+    };
 
-      // Baseline parameters matching Costing Engine
-      const baseSpec = {
-        vendor: item.vendor || sale.vendor,
-        rmBase: Number(rmMapping.approvedPrice || item.approvedRmRate || (isCrisper ? 103.08 : 130.00)),
-        rmRate: Number(rmMapping.approvedPrice || item.approvedRmRate || (isCrisper ? 103.08 : 130.00)),
-        mbBase: Number(mbMapping.approvedMbPrice || item.masterbatchRate || (isCrisper ? 240.00 : 0.00)),
-        masterbatchRate: Number(mbMapping.approvedMbPrice || item.masterbatchRate || (isCrisper ? 240.00 : 0.00)),
-        mbPct: Number((item.masterbatchPct ?? params.masterbatchPct ?? (isCrisper ? 3.5 : 0.0)) / 100),
-        masterbatchPct: Number(item.masterbatchPct ?? params.masterbatchPct ?? (isCrisper ? 3.5 : 0.0)),
-        partWt: Number(item.netWeight ?? params.netWeightApproved ?? (isCrisper ? 485 : (sale.vendor === 'Atomberg' ? 37 : 197))),
-        netWeight: Number(item.netWeight ?? params.netWeightApproved ?? (isCrisper ? 485 : (sale.vendor === 'Atomberg' ? 37 : 197))),
-        runnerWt: Number(item.runnerWeight ?? params.runnerWeight ?? (isCrisper ? 22 : (sale.vendor === 'Atomberg' ? 1 : 40))),
-        runnerWeight: Number(item.runnerWeight ?? params.runnerWeight ?? (isCrisper ? 22 : (sale.vendor === 'Atomberg' ? 1 : 40))),
-        bopCost: Number(item.bopCost || params.bopCost || 0.0),
-        tonnage: Number(item.machineTonnage ?? params.machineTonnage ?? (isCrisper ? 650 : (sale.vendor === 'Atomberg' ? 200 : 450))),
-        machineTonnage: Number(item.machineTonnage ?? params.machineTonnage ?? (isCrisper ? 650 : (sale.vendor === 'Atomberg' ? 200 : 450))),
-        shiftTariff: Number(item.hourlyRate ? item.hourlyRate * 8 : (isCrisper ? 5760 : (sale.vendor === 'Atomberg' ? 2000 : 4600))),
-        cycleTime: Number(item.cycleTimeApproved ?? item.cycleTime ?? (isCrisper ? 58 : (sale.vendor === 'Atomberg' ? 47 : 48))),
-        cavity: Number(item.cavity ?? params.cavity ?? (isCrisper ? 1 : 2))
-      };
-      const baselineCalc = calculateDetailedCost(baseSpec, true);
+    const baselineCalc = calculatePieceCostUnified({ item: product, isBaseline: true });
+    const actualCalc = calculatePieceCostUnified({ item: product, isBaseline: false });
 
-      // Running parameters matching Costing Engine
-      const runningSpec = {
-        vendor: item.vendor || sale.vendor,
-        rmBase: Number(rmMapping.activeWaPrice || baseSpec.rmBase),
-        rmRate: Number(rmMapping.activeWaPrice || baseSpec.rmRate),
-        mbBase: Number(mbMapping.activeMbPrice || baseSpec.mbBase),
-        masterbatchRate: Number(mbMapping.activeMbPrice || baseSpec.masterbatchRate),
-        mbPct: Number((params.runningMbPct !== undefined ? params.runningMbPct : baseSpec.masterbatchPct) / 100),
-        masterbatchPct: Number(params.runningMbPct ?? baseSpec.masterbatchPct),
-        partWt: Number(params.runningNetWeight ?? baseSpec.partWt),
-        netWeight: Number(params.runningNetWeight ?? baseSpec.netWeight),
-        runnerWt: Number(params.runningRunnerWeight ?? baseSpec.runnerWt),
-        runnerWeight: Number(params.runningRunnerWeight ?? baseSpec.runnerWeight),
-        bopCost: Number(params.runningBopCost ?? baseSpec.bopCost),
-        tonnage: Number(params.runningTonnage ?? baseSpec.tonnage),
-        machineTonnage: Number(params.runningTonnage ?? baseSpec.machineTonnage),
-        shiftTariff: Number(params.runningShiftTariff ?? baseSpec.shiftTariff),
-        cycleTime: Number(params.runningCycleTime ?? baseSpec.cycleTime),
-        cavity: Number(params.runningCavity ?? baseSpec.cavity)
-      };
-      const runningCalc = calculateDetailedCost(runningSpec, false);
+    const contractBaseline = baselineCalc.totalCost || baselineCalc.finalLanded || 0;
+    const actualUnitCost = actualCalc.totalCost || actualCalc.finalLanded || 0;
+    const delta = contractBaseline - actualUnitCost;
 
-      const contractBaseline = Number(baselineCalc.totalCost.toFixed(2));
-      const actualUnitCost = Number(runningCalc.totalCost.toFixed(2));
-      const unitDelta = Number((contractBaseline - actualUnitCost).toFixed(2));
-      const totalDelta = Number((unitDelta * sale.saleUnit).toFixed(2));
-      const totalSales = Number((sale.sellingPrice * sale.saleUnit).toFixed(2));
-      const totalActualCost = Number((actualUnitCost * sale.saleUnit).toFixed(2));
-      const grossMarginAmt = Number((totalSales - totalActualCost).toFixed(2));
+    const totalSales = disp.qty * disp.sellingPrice;
+    const totalActualCost = disp.qty * actualUnitCost;
+    const grossProfit = totalSales - totalActualCost;
+    const totalProfitLossDelta = disp.qty * delta;
 
-      return {
-        ...sale,
-        contractBaseline,
-        actualUnitCost,
-        unitDelta,
-        totalDelta,
-        totalSales,
-        grossMarginAmt
-      };
-    });
-  }, [salesData, allBaselines, selectedVendor]);
-
-  const summary = useMemo(() => {
-    const totalVolume = analyzedRows.reduce((a, b) => a + (b.saleUnit || 0), 0);
-    const totalRevenue = analyzedRows.reduce((a, b) => a + (b.totalSales || 0), 0);
-    const totalCostDelta = analyzedRows.reduce((a, b) => a + (b.totalDelta || 0), 0);
-    const totalGrossProfit = analyzedRows.reduce((a, b) => a + (b.grossMarginAmt || 0), 0);
-    const grossProfitPct = totalRevenue > 0 ? ((totalGrossProfit / totalRevenue) * 100).toFixed(1) : '0.0';
+    totalSalesVolume += disp.qty;
+    totalSalesRevenue += totalSales;
+    totalGrossProfit += grossProfit;
+    totalCostVariance += totalProfitLossDelta;
 
     return {
-      totalVolume,
-      totalRevenue,
-      totalCostDelta,
-      totalGrossProfit,
-      grossProfitPct
+      ...disp,
+      contractBaseline,
+      actualUnitCost,
+      delta,
+      totalProfitLossDelta,
+      totalSales
     };
-  }, [analyzedRows]);
+  });
+
+  const grossMarginPct = totalSalesRevenue > 0 ? ((totalGrossProfit / totalSalesRevenue) * 100).toFixed(1) : 0;
 
   return (
     <div className="space-y-4 text-xs font-sans">
@@ -128,114 +122,123 @@ export default function MISIntelligencePage() {
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-white p-3 rounded-2xl border border-slate-300 shadow-sm flex flex-wrap justify-between items-center gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1.5">
-            <span className="font-bold text-slate-700">VENDOR:</span>
-            <select
-              value={selectedVendor}
-              onChange={e => setSelectedVendor(e.target.value)}
-              className="border-2 border-blue-600 rounded-xl px-3 py-1.5 font-bold bg-white text-blue-950 outline-none cursor-pointer"
-            >
-              <option value="Haier">Haier Appliances</option>
-              <option value="Atomberg">Atomberg Technologies</option>
-              <option value="All Vendors Combined">All Vendors Combined</option>
-              {vendors.filter(v => v.vendorId !== 'Haier' && v.vendorId !== 'Atomberg').map(v => (
-                <option key={v.vendorId} value={v.vendorId}>{v.vendorName}</option>
-              ))}
-            </select>
-          </div>
+      <div className="bg-white p-3.5 rounded-2xl border border-slate-300 shadow-sm flex flex-wrap justify-between items-center gap-3">
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-slate-700">VENDOR:</span>
+          <select
+            value={selectedVendor}
+            onChange={(e) => setSelectedVendor(e.target.value)}
+            className="border-2 border-blue-600 rounded-xl px-3 py-1.5 font-bold bg-white text-blue-950 outline-none cursor-pointer"
+          >
+            <option value="ALL">All Vendors Combined</option>
+            <option value="Haier">Haier Appliances</option>
+            <option value="Atomberg">Atomberg Technologies</option>
+          </select>
+        </div>
 
-          <div className="flex items-center gap-2 bg-slate-50 border rounded-xl px-3 py-1 text-slate-700">
-            <Calendar className="w-3.5 h-3.5 text-slate-500" />
-            <span className="font-bold text-[11px]">PERIOD:</span>
-            <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="bg-white border rounded px-1.5 py-0.5 font-mono text-xs" />
-            <span>&rarr;</span>
-            <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="bg-white border rounded px-1.5 py-0.5 font-mono text-xs" />
-          </div>
+        <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-300">
+          <Calendar className="w-4 h-4 text-slate-500" />
+          <span className="font-bold text-slate-600">PERIOD:</span>
+          <input 
+            type="date" 
+            value={startDate} 
+            onChange={e => setStartDate(e.target.value)} 
+            className="border px-2 py-0.5 rounded text-xs bg-white" 
+          />
+          <span className="text-slate-400">&rarr;</span>
+          <input 
+            type="date" 
+            value={endDate} 
+            onChange={e => setEndDate(e.target.value)} 
+            className="border px-2 py-0.5 rounded text-xs bg-white" 
+          />
         </div>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-        <div className="bg-white border border-slate-300 rounded-2xl p-4 shadow-xs">
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Period Sales Volume</span>
-          <span className="text-2xl font-black text-slate-900 font-mono mt-1 block">{summary.totalVolume.toLocaleString()} pcs</span>
-        </div>
-
-        <div className="bg-white border border-slate-300 rounded-2xl p-4 shadow-xs">
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Total Sales Revenue</span>
-          <span className="text-2xl font-black text-blue-900 font-mono mt-1 block">₹{summary.totalRevenue.toLocaleString('en-IN')}</span>
-        </div>
-
-        <div className="bg-white border border-slate-300 rounded-2xl p-4 shadow-xs">
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Gross Profit & Margin</span>
-          <span className="text-2xl font-black text-emerald-900 font-mono mt-1 block">
-            ₹{summary.totalGrossProfit.toLocaleString('en-IN')} <span className="text-xs font-bold text-emerald-700">({summary.grossProfitPct}%)</span>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+          <span className="text-[10px] font-bold uppercase text-slate-500 block">PERIOD SALES VOLUME</span>
+          <span className="text-xl font-black text-slate-900 font-mono mt-1 block">
+            {totalSalesVolume.toLocaleString()} pcs
           </span>
         </div>
-
-        <div className={`border rounded-2xl p-4 shadow-xs ${summary.totalCostDelta >= 0 ? 'bg-emerald-50 border-emerald-300' : 'bg-rose-50 border-rose-300'}`}>
-          <div className="flex justify-between items-center">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">Cost Variance Gain / Loss</span>
-            {summary.totalCostDelta >= 0 ? <TrendingUp className="w-4 h-4 text-emerald-600" /> : <TrendingDown className="w-4 h-4 text-rose-600" />}
-          </div>
-          <span className={`text-2xl font-black font-mono mt-1 block ${summary.totalCostDelta >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-            {summary.totalCostDelta >= 0 ? `₹ +${summary.totalCostDelta.toLocaleString('en-IN')}` : `₹ -${Math.abs(summary.totalCostDelta).toLocaleString('en-IN')}`}
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+          <span className="text-[10px] font-bold uppercase text-slate-500 block">TOTAL SALES REVENUE</span>
+          <span className="text-xl font-black text-blue-900 font-mono mt-1 block">
+            ₹{Math.round(totalSalesRevenue).toLocaleString()}
+          </span>
+        </div>
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+          <span className="text-[10px] font-bold uppercase text-slate-500 block">GROSS PROFIT & MARGIN</span>
+          <span className="text-xl font-black text-emerald-800 font-mono mt-1 block">
+            ₹{Math.round(totalGrossProfit).toLocaleString()} <span className="text-xs font-semibold text-emerald-600">({grossMarginPct}%)</span>
+          </span>
+        </div>
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+          <span className="text-[10px] font-bold uppercase text-slate-500 block">COST VARIANCE GAIN / LOSS</span>
+          <span className={`text-xl font-black font-mono mt-1 block ${totalCostVariance >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+            {totalCostVariance >= 0 ? `+ ₹${Math.round(totalCostVariance).toLocaleString()}` : `- ₹${Math.abs(Math.round(totalCostVariance)).toLocaleString()}`}
           </span>
         </div>
       </div>
 
-      {/* Product Realization Table */}
+      {/* Table */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-300 overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-200 bg-slate-900 text-white flex justify-between items-center">
           <h2 className="text-sm font-bold flex items-center gap-2">
-            <FileSpreadsheet className="w-4 h-4 text-blue-400" /> Product Sales Realization & Costing Analysis
+            <FileText className="w-4 h-4 text-blue-400" /> Product Sales Realization & Costing Analysis
           </h2>
-          <span className="text-[11px] text-slate-300 font-mono">{analyzedRows.length} Dispatch Invoices</span>
+          <span className="text-[11px] text-slate-300 font-mono">{rows.length} Dispatch Invoices</span>
         </div>
 
         <div className="overflow-x-auto">
           <table className="min-w-full text-xs text-left">
             <thead className="bg-slate-100 text-slate-700 font-bold uppercase text-[10px] border-b border-slate-300">
               <tr>
-                <th className="p-3">Date</th>
-                <th className="p-3">Part Code</th>
-                <th className="p-3">Component Name</th>
-                <th className="p-3 text-center">Vendor</th>
-                <th className="p-3 text-right">Qty Sold</th>
-                <th className="p-3 text-right">Selling Price</th>
-                <th className="p-3 text-right bg-amber-50 font-bold">Contract Baseline</th>
-                <th className="p-3 text-right bg-blue-50 font-bold">Actual Unit Cost</th>
-                <th className="p-3 text-right bg-yellow-100/70 font-black">Profit / Loss (Δ)</th>
-                <th className="p-3 text-right bg-cyan-100/70 font-black">Total Profit / Loss (Δ)</th>
-                <th className="p-3 text-right bg-orange-100/70 font-black">Total Sales</th>
+                <th className="p-3">DATE</th>
+                <th className="p-3">PART CODE</th>
+                <th className="p-3">COMPONENT NAME</th>
+                <th className="p-3 text-center">VENDOR</th>
+                <th className="p-3 text-right">QTY SOLD</th>
+                <th className="p-3 text-right">SELLING PRICE</th>
+                <th className="p-3 text-center bg-amber-50 font-bold text-amber-950">CONTRACT BASELINE</th>
+                <th className="p-3 text-center bg-blue-50 font-bold text-blue-950">ACTUAL UNIT COST</th>
+                <th className="p-3 text-center bg-yellow-50/70 font-bold text-slate-900">PROFIT / LOSS (Δ)</th>
+                <th className="p-3 text-center font-bold">TOTAL PROFIT / LOSS (Δ)</th>
+                <th className="p-3 text-right">TOTAL SALES</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 font-medium">
-              {analyzedRows.map((row) => (
-                <tr key={row.id} className="hover:bg-slate-50">
-                  <td className="p-3 font-mono text-slate-500">{row.invoiceDate}</td>
-                  <td className="p-3 font-mono font-bold text-blue-700">{row.itemCode}</td>
-                  <td className="p-3 font-semibold text-slate-900">{row.componentName}</td>
-                  <td className="p-3 text-center font-bold text-slate-700">{row.vendor}</td>
-                  <td className="p-3 text-right font-mono font-bold">{row.saleUnit.toLocaleString()}</td>
-                  <td className="p-3 text-right font-mono font-bold">₹{row.sellingPrice.toFixed(2)}</td>
-                  <td className="p-3 text-right font-mono font-black text-slate-900 bg-amber-50/50">₹{row.contractBaseline.toFixed(2)}</td>
-                  <td className="p-3 text-right font-mono font-black text-blue-950 bg-blue-50/50">₹{row.actualUnitCost.toFixed(2)}</td>
-                  <td className="p-3 text-right font-mono font-black bg-yellow-50">
-                    <span className={row.unitDelta >= 0 ? 'text-emerald-700 font-bold' : 'text-rose-700 font-bold'}>
-                      {row.unitDelta >= 0 ? `₹ +${row.unitDelta.toFixed(2)}` : `₹ -${Math.abs(row.unitDelta).toFixed(2)}`}
+              {rows.map((r) => (
+                <tr key={r.id} className="hover:bg-slate-50">
+                  <td className="p-3 font-mono text-slate-500">{r.date}</td>
+                  <td className="p-3 font-mono font-bold text-blue-700">{r.itemCode}</td>
+                  <td className="p-3 font-semibold text-slate-900">{r.componentName}</td>
+                  <td className="p-3 text-center">
+                    <span className="px-2 py-0.5 bg-slate-100 border border-slate-300 rounded font-bold text-[10px] text-slate-700">
+                      {r.vendor}
                     </span>
                   </td>
-                  <td className="p-3 text-right font-mono font-black bg-cyan-50">
-                    <span className={row.totalDelta >= 0 ? 'text-emerald-700 font-bold' : 'text-rose-700 font-bold'}>
-                      {row.totalDelta >= 0 ? `₹ +${row.totalDelta.toLocaleString('en-IN')}` : `₹ -${Math.abs(row.totalDelta).toLocaleString('en-IN')}`}
+                  <td className="p-3 text-right font-mono font-bold">{r.qty.toLocaleString()}</td>
+                  <td className="p-3 text-right font-mono">₹{r.sellingPrice.toFixed(2)}</td>
+                  <td className="p-3 text-center bg-amber-50/70 font-mono font-bold text-slate-900">
+                    ₹{r.contractBaseline.toFixed(2)}
+                  </td>
+                  <td className="p-3 text-center bg-blue-50/70 font-mono font-bold text-slate-900">
+                    ₹{r.actualUnitCost.toFixed(2)}
+                  </td>
+                  <td className="p-3 text-center bg-yellow-50/70">
+                    <span className={`inline-flex items-center gap-0.5 font-mono font-bold ${r.delta >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                      {r.delta >= 0 ? `+ ₹${r.delta.toFixed(2)}` : `- ₹${Math.abs(r.delta).toFixed(2)}`}
                     </span>
                   </td>
-                  <td className="p-3 text-right font-mono font-black text-slate-900 bg-orange-50">
-                    ₹{row.totalSales.toLocaleString('en-IN')}
+                  <td className="p-3 text-center">
+                    <span className={`font-mono font-bold ${r.totalProfitLossDelta >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                      {r.totalProfitLossDelta >= 0 ? `+ ₹${Math.round(r.totalProfitLossDelta).toLocaleString()}` : `- ₹${Math.abs(Math.round(r.totalProfitLossDelta)).toLocaleString()}`}
+                    </span>
                   </td>
+                  <td className="p-3 text-right font-mono font-bold text-slate-900">₹{r.totalSales.toLocaleString()}</td>
                 </tr>
               ))}
             </tbody>
