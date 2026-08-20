@@ -1,7 +1,15 @@
-export const globalStore = {
-  // Default to LOCKED state
-  isGlobalLocked: true,
+import { 
+  fetchAllBaselineProducts, 
+  saveBaselineProductToSupabase, 
+  fetchRmMappingsFromSupabase, 
+  saveRmMappingToSupabase, 
+  fetchSalesFromSupabase, 
+  saveSalesDispatchToSupabase, 
+  saveChangeLogToSupabase 
+} from '../services/supabaseService';
 
+export const globalStore = {
+  isGlobalLocked: true,
   vendors: [
     { vendorId: 'Atomberg', vendorName: 'Atomberg Technologies' },
     { vendorId: 'Haier', vendorName: 'Haier Appliances' }
@@ -222,31 +230,8 @@ export const globalStore = {
     { id: 'disp-4', date: '2026-08-01', itemCode: 'A101703', componentName: 'Aris Top Canopy- Gloss Black', qty: 1000, sellingPrice: 15.96, vendor: 'Atomberg' }
   ],
 
-  // Full Change Log & Audit Trail
-  changeLogs: [
-    {
-      id: 'log-1',
-      timestamp: '2026-08-01 10:15 AM',
-      user: 'Costing Lead',
-      module: 'RM Price Matrix',
-      entity: 'PP H110MA',
-      changeType: 'Price Baseline Initialization',
-      previousValue: '₹128.50',
-      newValue: '₹131.00',
-      reason: 'Contractual Q3 Index Revision'
-    },
-    {
-      id: 'log-2',
-      timestamp: '2026-08-02 02:30 PM',
-      user: 'Plant Manager',
-      module: 'Baseline Specs',
-      entity: '0060217989D',
-      changeType: 'Cycle Time Tuning',
-      previousValue: '50.0s',
-      newValue: '48.0s',
-      reason: 'Mould cooling optimization verification'
-    }
-  ]
+  parameterChangeLogs: [],
+  changeLogs: []
 };
 
 let listeners = [];
@@ -259,73 +244,94 @@ export function notifyStore() {
   listeners.forEach(fn => fn());
 }
 
+(async function initSupabaseData() {
+  try {
+    const supaProducts = await fetchAllBaselineProducts();
+    if (supaProducts && supaProducts.length > 0) {
+      globalStore.baselineProducts = supaProducts;
+    }
+    const supaMappings = await fetchRmMappingsFromSupabase();
+    if (supaMappings && supaMappings.length > 0) {
+      globalStore.rmMappingsData = supaMappings;
+    }
+    const supaSales = await fetchSalesFromSupabase();
+    if (supaSales && supaSales.length > 0) {
+      globalStore.sales = supaSales;
+    }
+    notifyStore();
+  } catch (e) {
+    console.warn('Supabase hydration info:', e.message);
+  }
+})();
+
 export function toggleGlobalLock() {
   globalStore.isGlobalLocked = !globalStore.isGlobalLocked;
-  notifyStore();
-}
-
-export function logChange({ module, entity, changeType, previousValue, newValue, reason }) {
-  if (!globalStore.changeLogs) globalStore.changeLogs = [];
-  globalStore.changeLogs.unshift({
-    id: `log-${Date.now()}`,
-    timestamp: new Date().toLocaleString(),
-    user: 'System User',
-    module,
-    entity,
-    changeType,
-    previousValue,
-    newValue,
-    reason: reason || 'Parameters Updated'
-  });
   notifyStore();
 }
 
 export function updateRmMappingRow(rowId, updatedFields, reason = 'Price / Alternate Update') {
   const row = (globalStore.rmMappingsData || []).find(r => r.id === rowId);
   if (row) {
-    const prev = JSON.stringify(row);
     Object.assign(row, updatedFields);
-    logChange({
-      module: 'RM Mapping',
-      entity: `${row.vendor} - ${row.approvedCode}`,
-      changeType: 'RM / Alternate Rate Modification',
-      previousValue: prev,
-      newValue: JSON.stringify(updatedFields),
-      reason
-    });
+    saveRmMappingToSupabase(row);
     notifyStore();
   }
+}
+
+export function updateBaselineParameters({ itemId, updatedItem, reason }) {
+  const prod = (globalStore.baselineProducts || []).find(p => p.id === itemId || p.itemCode === itemId);
+  if (!prod) return;
+  
+  if (updatedItem.parameters) {
+    prod.parameters = { ...prod.parameters, ...updatedItem.parameters };
+  }
+  
+  saveBaselineProductToSupabase(prod);
+
+  const logEntry = {
+    id: `param-log-${Date.now()}`,
+    timestamp: new Date().toLocaleString(),
+    partCode: prod.itemCode,
+    componentName: prod.componentName,
+    vendor: prod.vendor,
+    modifications: Object.entries(updatedItem.parameters || {}).map(([k, v]) => `${k.replace('running', '')}: ${v}`).join(', '),
+    costImpact: updatedItem.delta ? `₹${Number(updatedItem.delta).toFixed(2)}` : 'Calculated',
+    authorizedBy: 'Costing Lead',
+    reason: reason || 'Parameters Updated'
+  };
+
+  if (!globalStore.parameterChangeLogs) globalStore.parameterChangeLogs = [];
+  globalStore.parameterChangeLogs.unshift(logEntry);
+  saveChangeLogToSupabase(logEntry);
+
+  notifyStore();
+}
+
+export function addStagedProductsToBaseline(stagedList, vendor) {
+  stagedList.forEach(staged => {
+    const idx = globalStore.baselineProducts.findIndex(p => p.itemCode === staged.itemCode);
+    if (idx >= 0) {
+      globalStore.baselineProducts[idx] = { ...globalStore.baselineProducts[idx], ...staged };
+      saveBaselineProductToSupabase(globalStore.baselineProducts[idx]);
+    } else {
+      const newProd = { ...staged, vendor: vendor || 'Haier' };
+      globalStore.baselineProducts.push(newProd);
+      saveBaselineProductToSupabase(newProd);
+    }
+  });
+  notifyStore();
 }
 
 export function addDayWisePurchase(record) {
   if (!globalStore.purchases) globalStore.purchases = [];
   globalStore.purchases.unshift(record);
-  logChange({
-    module: 'Day-wise Purchase',
-    entity: record.invoiceNo || record.grade,
-    changeType: 'Inward Lot Ingested',
-    previousValue: '-',
-    newValue: `${record.qty} kg @ ₹${record.rate}`,
-    reason: 'Purchase Inward File Upload'
-  });
   notifyStore();
 }
 
 export function addDayWiseSales(record) {
   if (!globalStore.sales) globalStore.sales = [];
   globalStore.sales.unshift(record);
-  logChange({
-    module: 'Day-wise Sales',
-    entity: record.itemCode,
-    changeType: 'Sales Dispatch Ingested',
-    previousValue: '-',
-    newValue: `${record.qty} pcs @ ₹${record.sellingPrice}`,
-    reason: 'Sales Invoice File Upload'
-  });
-  notifyStore();
-}
-
-export function saveVendorPeriodSchedule() {
+  saveSalesDispatchToSupabase(record);
   notifyStore();
 }
 
@@ -367,32 +373,12 @@ export function getActiveMbMapping(vendor, targetDate) {
   return { approvedMbPrice: 250.00, activeMbWaPrice: 258.54 };
 }
 
-export function updateBaselineParameters({ itemId, updatedItem, reason }) {
-  const prod = (globalStore.baselineProducts || []).find(p => p.id === itemId || p.itemCode === itemId);
-  if (!prod) return;
-  if (updatedItem.parameters) prod.parameters = { ...prod.parameters, ...updatedItem.parameters };
-  logChange({
-    module: 'Baseline Specs',
-    entity: prod.itemCode,
-    changeType: 'Shopfloor Spec Drift Updated',
-    previousValue: 'Baseline Baseline',
-    newValue: JSON.stringify(updatedItem.parameters || {}),
-    reason: reason || 'Parameter Edit'
-  });
-  notifyStore();
-}
-
 export function deleteProductFromBaseline(itemId) {
   globalStore.baselineProducts = (globalStore.baselineProducts || []).filter(p => p.id !== itemId && p.itemCode !== itemId);
   notifyStore();
 }
 
-export function addStagedProductsToBaseline(stagedList, vendor) {
-  stagedList.forEach(staged => {
-    const idx = globalStore.baselineProducts.findIndex(p => p.itemCode === staged.itemCode);
-    if (idx >= 0) globalStore.baselineProducts[idx] = { ...globalStore.baselineProducts[idx], ...staged };
-    else globalStore.baselineProducts.push({ ...staged, vendor: vendor || 'Haier' });
-  });
+export function saveVendorPeriodSchedule() {
   notifyStore();
 }
 
