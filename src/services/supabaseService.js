@@ -1,36 +1,169 @@
 import { supabase } from './supabaseClient';
 
+const DEFAULT_INITIAL_PRODUCTS = [
+  {
+    id: 'prod-atom-1',
+    vendor: 'Atomberg',
+    item_code: 'A101703',
+    component_name: 'Aris Top Canopy- Gloss Black',
+    model: 'Aris 1200mm',
+    approved_rm: 'PP H110MA',
+    approved_rm_rate: 131.00,
+    masterbatch_pct: 4.0,
+    masterbatch_rate: 250.00,
+    cavity: 2,
+    net_weight: 37.0,
+    runner_weight: 1.0,
+    cycle_time_approved: 47.0,
+    cycle_time: 47.0,
+    machine_tonnage: 200,
+    shift_tariff: 2000,
+    bop_cost: 0.0,
+    post_op_cost: 1.73,
+    parameters: {
+      runningCavity: 2,
+      runningNetWeight: 37.0,
+      runningRunnerWeight: 1.0,
+      runningCycleTime: 47.0,
+      runningTonnage: 200,
+      runningMbPct: 4.0,
+      runningPostOpCost: 1.73,
+      runningBopCost: 0.0
+    }
+  },
+  {
+    id: 'prod-atom-2',
+    vendor: 'Atomberg',
+    item_code: 'A101701',
+    component_name: 'Aris Top Canopy- Gloss White',
+    model: 'Aris 1200mm',
+    approved_rm: 'PP H110MA',
+    approved_rm_rate: 131.00,
+    masterbatch_pct: 4.0,
+    masterbatch_rate: 250.00,
+    cavity: 2,
+    net_weight: 37.0,
+    runner_weight: 1.0,
+    cycle_time_approved: 47.0,
+    cycle_time: 47.0,
+    machine_tonnage: 200,
+    shift_tariff: 2000,
+    bop_cost: 0.0,
+    post_op_cost: 1.73,
+    parameters: {
+      runningCavity: 2,
+      runningNetWeight: 37.0,
+      runningRunnerWeight: 1.0,
+      runningCycleTime: 47.0,
+      runningTonnage: 200,
+      runningMbPct: 4.0,
+      runningPostOpCost: 1.73,
+      runningBopCost: 0.0
+    }
+  },
+  {
+    id: 'prod-haier-1',
+    vendor: 'Haier',
+    item_code: '0060217989D',
+    component_name: 'End cap Bottom Ref-ABS-DC-195,220',
+    model: 'OLD DC- 195,220',
+    approved_rm: 'ABS 300 Pre Colour',
+    approved_rm_rate: 136.20,
+    masterbatch_pct: 0.0,
+    masterbatch_rate: 0.0,
+    cavity: 2,
+    net_weight: 197.0,
+    runner_weight: 40.0,
+    cycle_time_approved: 48.0,
+    cycle_time: 48.0,
+    machine_tonnage: 450,
+    shift_tariff: 3600,
+    bop_cost: 0.14,
+    parameters: {
+      runningCavity: 2,
+      runningNetWeight: 197.0,
+      runningRunnerWeight: 40.0,
+      runningCycleTime: 48.0,
+      runningTonnage: 450,
+      runningMbPct: 0.0,
+      runningBopCost: 0.0
+    }
+  },
+  {
+    id: 'prod-haier-2',
+    vendor: 'Haier',
+    item_code: '0060217978E',
+    component_name: 'CRISPER GPPS LV + 3.5% SMOKE GREY VEG BOX',
+    model: 'DC 195, 220',
+    approved_rm: 'GPPS SC201LV',
+    approved_rm_rate: 100.00,
+    masterbatch_pct: 3.5,
+    masterbatch_rate: 0.0,
+    cavity: 1,
+    net_weight: 485.0,
+    runner_weight: 22.0,
+    cycle_time_approved: 58.0,
+    cycle_time: 58.0,
+    machine_tonnage: 650,
+    shift_tariff: 5760,
+    bop_cost: 0.14,
+    parameters: {
+      runningCavity: 1,
+      runningNetWeight: 485.0,
+      runningRunnerWeight: 22.0,
+      runningCycleTime: 58.0,
+      runningTonnage: 650,
+      runningMbPct: 3.5,
+      runningBopCost: 0.0
+    }
+  }
+];
+
 export async function fetchAllBaselineProducts() {
   try {
     const { data, error } = await supabase.from('baseline_products').select('*');
     if (error) throw error;
-    if (!data || data.length === 0) return null;
 
-    return data.map(row => ({
-      id: row.id,
-      vendor: row.vendor,
-      itemCode: row.item_code,
-      componentName: row.component_name,
-      model: row.model,
-      approvedRm: row.approved_rm,
-      approvedRmRate: Number(row.approved_rm_rate),
-      masterbatchPct: Number(row.masterbatch_pct),
-      masterbatchRate: Number(row.masterbatch_rate),
-      cavity: Number(row.cavity),
-      netWeight: Number(row.net_weight),
-      runnerWeight: Number(row.runner_weight),
-      cycleTimeApproved: Number(row.cycle_time_approved),
-      cycleTime: Number(row.cycle_time),
-      machineTonnage: Number(row.machine_tonnage),
-      shiftTariff: Number(row.shift_tariff),
-      bopCost: Number(row.bop_cost),
-      postOpCost: Number(row.post_op_cost || 0),
-      parameters: row.parameters || {}
-    }));
+    // Seed defaults into database if table is newly connected
+    if (!data || data.length < 4) {
+      for (const prod of DEFAULT_INITIAL_PRODUCTS) {
+        await supabase.from('baseline_products').upsert(prod, { onConflict: 'item_code' });
+      }
+      const refreshed = await supabase.from('baseline_products').select('*');
+      if (refreshed.data && refreshed.data.length > 0) {
+        return mapProducts(refreshed.data);
+      }
+    }
+
+    return mapProducts(data);
   } catch (err) {
-    console.warn('Supabase fetch products error, fallback to local store:', err.message);
+    console.warn('Supabase fetch products notice:', err.message);
     return null;
   }
+}
+
+function mapProducts(data) {
+  return data.map(row => ({
+    id: row.id || `prod-${row.item_code}`,
+    vendor: row.vendor,
+    itemCode: row.item_code,
+    componentName: row.component_name,
+    model: row.model,
+    approvedRm: row.approved_rm,
+    approvedRmRate: Number(row.approved_rm_rate),
+    masterbatchPct: Number(row.masterbatch_pct),
+    masterbatchRate: Number(row.masterbatch_rate),
+    cavity: Number(row.cavity),
+    netWeight: Number(row.net_weight),
+    runnerWeight: Number(row.runner_weight),
+    cycleTimeApproved: Number(row.cycle_time_approved),
+    cycleTime: Number(row.cycle_time),
+    machineTonnage: Number(row.machine_tonnage),
+    shiftTariff: Number(row.shift_tariff),
+    bopCost: Number(row.bop_cost),
+    postOpCost: Number(row.post_op_cost || 0),
+    parameters: row.parameters || {}
+  }));
 }
 
 export async function saveBaselineProductToSupabase(product) {
@@ -87,7 +220,6 @@ export async function fetchRmMappingsFromSupabase() {
       activeAlt: r.active_alt || 'alt1'
     }));
   } catch (err) {
-    console.warn('Supabase fetch RM mappings error:', err.message);
     return null;
   }
 }
@@ -111,8 +243,7 @@ export async function saveRmMappingToSupabase(mapping) {
       active_alt: mapping.activeAlt || 'alt1'
     };
 
-    const { error } = await supabase.from('rm_mappings').upsert(record, { onConflict: 'id' });
-    if (error) throw error;
+    await supabase.from('rm_mappings').upsert(record, { onConflict: 'id' });
   } catch (err) {
     console.error('Failed to sync RM mapping to Supabase:', err.message);
   }
@@ -158,7 +289,7 @@ export async function saveChangeLogToSupabase(log) {
   try {
     const record = {
       id: log.id || `log-${Date.now()}`,
-      user_name: log.user || log.authorizedBy || 'System User',
+      user_name: log.user || log.authorizedBy || 'Costing Lead',
       module: log.module || 'Baseline Master',
       entity: log.entity || log.partCode || 'General',
       change_type: log.changeType || 'Parameter Edit',
