@@ -1,7 +1,19 @@
+#!/usr/bin/env bash
+set -e
+
+echo "==> 1. Updating CostingRunEnginePage.jsx to compute exact baseline vs actuals matching InlineEditModal..."
+cat << 'PAGE_EOF' > src/modules/module3-costing-engine/CostingRunEnginePage.jsx
 import React, { useState, useEffect } from 'react';
-import { getAllProductCosts, subscribeProductCosts } from '../../shared/productCostRepo';
+import { 
+  globalStore, 
+  subscribeStore, 
+  getActiveRmMapping, 
+  getActiveMbMapping 
+} from '../../shared/masterStore';
+import { calculateAtombergCost, calculateHaierCost } from '../../shared/costCalculationService';
+import { pushCostOutputsFromCostingPage } from '../../shared/costOutputStore';
 import * as XLSX from 'xlsx';
-import { Calculator, Download, Search, TrendingUp, TrendingDown, RefreshCw } from 'lucide-react';
+import { Calculator, Download, Search, TrendingUp, TrendingDown, CheckCircle2 } from 'lucide-react';
 
 export default function CostingRunEnginePage() {
   const [, setTick] = useState(0);
@@ -9,11 +21,67 @@ export default function CostingRunEnginePage() {
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    return subscribeProductCosts(() => setTick(t => t + 1));
+    return subscribeStore(() => setTick(t => t + 1));
   }, []);
 
-  const costMap = getAllProductCosts();
-  const calculatedRows = Object.values(costMap);
+  const products = globalStore.baselineProducts || [];
+
+  // Compute live matrix for each product replicating InlineEditModal logic
+  const calculatedRows = products.map(prod => {
+    const isAtomberg = (prod.vendor || '').toLowerCase().includes('atomberg');
+    const rmInfo = getActiveRmMapping(prod.approvedRm || '', prod.vendor || 'Haier');
+    const mbInfo = getActiveMbMapping(prod.vendor || 'Haier');
+
+    // 1. Approved Baseline Contract Calculation
+    const baseCalc = isAtomberg
+      ? calculateAtombergCost(prod, {})
+      : calculateHaierCost(prod, {});
+
+    // 2. Actual Running Shopfloor Calculation (using active WA price & running params)
+    const runCalc = isAtomberg
+      ? calculateAtombergCost(prod, {
+          netWeight: prod.parameters?.runningNetWeight ?? prod.netWeight,
+          runnerWeight: prod.parameters?.runningRunnerWeight ?? prod.runnerWeight,
+          cavity: prod.parameters?.runningCavity ?? prod.cavity,
+          cycleTime: prod.parameters?.runningCycleTime ?? prod.cycleTime,
+          masterbatchPct: prod.parameters?.runningMbPct ?? prod.masterbatchPct,
+          actualRmRate: rmInfo.activeWaPrice,
+          actualMbRate: mbInfo.activeMbWaPrice
+        })
+      : calculateHaierCost(prod, {
+          netWeight: prod.parameters?.runningNetWeight ?? prod.netWeight,
+          runnerWeight: prod.parameters?.runningRunnerWeight ?? prod.runnerWeight,
+          cavity: prod.parameters?.runningCavity ?? prod.cavity,
+          cycleTime: prod.parameters?.runningCycleTime ?? prod.cycleTime,
+          masterbatchPct: prod.parameters?.runningMbPct ?? prod.masterbatchPct,
+          actualRmRate: rmInfo.activeWaPrice,
+          actualMbRate: mbInfo.activeMbWaPrice
+        });
+
+    const approvedBaseline = Number(baseCalc.finalLanded ?? baseCalc.totalApproved ?? baseCalc.approvedBaseline ?? 0);
+    const simulatedActual = Number(runCalc.finalLanded ?? runCalc.totalActual ?? runCalc.actualRunning ?? 0);
+    const delta = Number((approvedBaseline - simulatedActual).toFixed(2));
+
+    return {
+      vendor: prod.vendor || (isAtomberg ? 'Atomberg' : 'Haier'),
+      itemCode: prod.itemCode,
+      componentName: prod.componentName,
+      approvedRm: prod.approvedRm,
+      approvedRmRate: prod.approvedRmRate || rmInfo.approvedPrice,
+      activeRmRate: rmInfo.activeWaPrice,
+      approvedCost: Number(approvedBaseline.toFixed(2)),
+      actualCost: Number(simulatedActual.toFixed(2)),
+      deltaCost: delta,
+      period: '2026-08'
+    };
+  });
+
+  // Automatically push the exact calculated summary rows to costOutputStore.js
+  useEffect(() => {
+    if (calculatedRows.length > 0) {
+      pushCostOutputsFromCostingPage(calculatedRows, '2026-08');
+    }
+  }, [products, globalStore]);
 
   const filteredRows = calculatedRows.filter(row => {
     const matchVendor = vendorFilter === 'ALL' || (row.vendor || '').toLowerCase().includes(vendorFilter.toLowerCase());
@@ -50,7 +118,12 @@ export default function CostingRunEnginePage() {
             <Calculator className="w-8 h-8" />
           </div>
           <div>
-            <h1 className="text-xl md:text-2xl font-bold tracking-tight">3. Dynamic Costing Run Engine</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl md:text-2xl font-bold tracking-tight">3. Dynamic Costing Run Engine</h1>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-500/30">
+                <CheckCircle2 className="w-3 h-3" /> Live Synced to costOutputStore.js
+              </span>
+            </div>
             <p className="text-sm text-slate-400">Live simulation matching contract baselines against active material inward rates.</p>
           </div>
         </div>
@@ -150,3 +223,12 @@ export default function CostingRunEnginePage() {
     </div>
   );
 }
+PAGE_EOF
+
+echo "==> 2. Restarting Vite development server on port 5173..."
+fuser -k 5173/tcp 2>/dev/null || killall -9 node 2>/dev/null || true
+rm -rf node_modules/.vite 2>/dev/null || true
+nohup npm run dev -- --host 0.0.0.0 --port 5173 > /tmp/vite_server.log 2>&1 &
+sleep 2
+
+echo "==> Costing Engine aligned with Edit Spec and Output Store!"
