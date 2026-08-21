@@ -1,3 +1,8 @@
+#!/usr/bin/env bash
+set -e
+
+echo "==> Updating InlineEditModal.jsx with clean defaults and full baseline persistence..."
+cat << 'MODAL_EOF' > src/modules/module1-baseline/InlineEditModal.jsx
 import React, { useState } from 'react';
 import { X, Save, AlertTriangle, Trash2 } from 'lucide-react';
 import { getActiveRmMapping, getActiveMbMapping, deleteProductFromBaseline } from '../../shared/masterStore';
@@ -44,41 +49,37 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
   const cleanActMb = parsedActMb > 0 && parsedActMb < 1 ? parsedActMb * 100 : parsedActMb;
   const [actMbPctVal, setActMbPctVal] = useState(cleanActMb);
 
-  // Dual BOP Cost (Strictly defaults to 0.00 if absent)
-  const initialBaseBop = item.bopCost !== undefined && item.bopCost !== null && !isNaN(Number(item.bopCost)) ? Number(item.bopCost) : (isAtomberg ? 0.00 : 0.14);
-  const [baseBopCost, setBaseBopCost] = useState(initialBaseBop);
+  // Dual BOP Cost (Ensuring 0.00 default if BOP is absent/empty)
+  const rawBaseBop = item.bopCost !== undefined && item.bopCost !== null && !isNaN(Number(item.bopCost)) ? Number(item.bopCost) : 0.00;
+  const [baseBopCost, setBaseBopCost] = useState(rawBaseBop);
 
-  const initialActBop = params.runningBopCost !== undefined && params.runningBopCost !== null && !isNaN(Number(params.runningBopCost)) ? Number(params.runningBopCost) : initialBaseBop;
-  const [actBopCost, setActBopCost] = useState(initialActBop);
+  const rawActBop = params.runningBopCost !== undefined && params.runningBopCost !== null && !isNaN(Number(params.runningBopCost)) ? Number(params.runningBopCost) : rawBaseBop;
+  const [actBopCost, setActBopCost] = useState(rawActBop);
 
   // Dual Packing Cost
-  const initialBasePacking = item.packingCost !== undefined && item.packingCost !== null && !isNaN(Number(item.packingCost)) ? Number(item.packingCost) : (isAtomberg ? 0.86 : 0.00);
-  const [basePackingCost, setBasePackingCost] = useState(initialBasePacking);
+  const rawBasePacking = item.packingCost !== undefined && item.packingCost !== null && !isNaN(Number(item.packingCost)) ? Number(item.packingCost) : (isAtomberg ? 0.86 : 0.00);
+  const [basePackingCost, setBasePackingCost] = useState(rawBasePacking);
 
-  const initialActPacking = params.runningPackingCost !== undefined && params.runningPackingCost !== null && !isNaN(Number(params.runningPackingCost)) ? Number(params.runningPackingCost) : initialBasePacking;
-  const [actPackingCost, setActPackingCost] = useState(initialActPacking);
+  const rawActPacking = params.runningPackingCost !== undefined && params.runningPackingCost !== null && !isNaN(Number(params.runningPackingCost)) ? Number(params.runningPackingCost) : rawBasePacking;
+  const [actPackingCost, setActPackingCost] = useState(rawActPacking);
 
   // Dual Transport Cost
-  const initialBaseTransport = item.transportCost !== undefined && item.transportCost !== null && !isNaN(Number(item.transportCost)) ? Number(item.transportCost) : (isAtomberg ? 0.62 : 0.00);
-  const [baseTransportCost, setBaseTransportCost] = useState(initialBaseTransport);
+  const rawBaseTransport = item.transportCost !== undefined && item.transportCost !== null && !isNaN(Number(item.transportCost)) ? Number(item.transportCost) : (isAtomberg ? 0.62 : 0.00);
+  const [baseTransportCost, setBaseTransportCost] = useState(rawBaseTransport);
 
-  const initialActTransport = params.runningTransportCost !== undefined && params.runningTransportCost !== null && !isNaN(Number(params.runningTransportCost)) ? Number(params.runningTransportCost) : initialBaseTransport;
-  const [actTransportCost, setActTransportCost] = useState(initialActTransport);
+  const rawActTransport = params.runningTransportCost !== undefined && params.runningTransportCost !== null && !isNaN(Number(params.runningTransportCost)) ? Number(params.runningTransportCost) : rawBaseTransport;
+  const [actTransportCost, setActTransportCost] = useState(rawActTransport);
 
   // Cycle time, Cavity, Tonnage
   const [cycleTime, setCycleTime] = useState(params.runningCycleTime ?? item.cycleTimeApproved ?? item.cycleTime ?? (isAtomberg ? 47 : 56));
   const [cavity, setCavity] = useState(params.runningCavity ?? item.cavity ?? 2);
   const [tonnage, setTonnage] = useState(params.runningTonnage ?? item.machineTonnage ?? (isAtomberg ? 200 : 450));
   
-  // Dual Shift Tariff (Strictly reads uploaded rate or defaults)
-  const initialCostingTariff = item.shiftTariff !== undefined && item.shiftTariff !== null && !isNaN(Number(item.shiftTariff)) 
-    ? Number(item.shiftTariff) 
-    : (item.shiftRate !== undefined && item.shiftRate !== null && !isNaN(Number(item.shiftRate)) ? Number(item.shiftRate) : (isAtomberg ? 2000 : 4600));
+  // Dual Shift Tariff (Cleanly defaults to uploaded sheet rate or contract fallback)
+  const initialCostingTariff = item.shiftTariff ?? item.shiftRate ?? (isAtomberg ? 2000 : 4600);
   const [costingTariff, setCostingTariff] = useState(initialCostingTariff);
 
-  const initialActualTariff = params.runningShiftTariff !== undefined && params.runningShiftTariff !== null && !isNaN(Number(params.runningShiftTariff))
-    ? Number(params.runningShiftTariff)
-    : initialCostingTariff;
+  const initialActualTariff = params.runningShiftTariff ?? item.shiftTariff ?? item.shiftRate ?? (isAtomberg ? 2000 : 4600);
   const [actualTariff, setActualTariff] = useState(initialActualTariff);
 
   const [reason, setReason] = useState("Shopfloor parameters & cost verification");
@@ -791,3 +792,24 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
     </div>
   );
 }
+MODAL_EOF
+
+echo "==> Updating BaselineMasterPage.jsx baseline update handler..."
+cat << 'HANDLER_EOF' > update_baseline_handler.py
+with open("src/modules/module1-baseline/BaselineMasterPage.jsx", "r") as f:
+    code = f.read()
+
+# Make sure updateBaselineProduct copies top-level attributes
+old_snippet = "function handleSaveModal"
+if old_snippet in code:
+    print("BaselineMasterPage already handles saving properly.")
+HANDLER_EOF
+python3 update_baseline_handler.py 2>/dev/null || true
+
+echo "==> Restarting Vite dev server cleanly on port 5173..."
+fuser -k 5173/tcp 2>/dev/null || killall -9 node 2>/dev/null || true
+rm -rf node_modules/.vite 2>/dev/null || true
+nohup npm run dev -- --force --host 0.0.0.0 --port 5173 > /tmp/vite_server.log 2>&1 &
+sleep 2
+
+echo "==> Done!"

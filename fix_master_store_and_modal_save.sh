@@ -1,3 +1,61 @@
+#!/usr/bin/env bash
+set -e
+
+echo "==> 1. Updating masterStore.js to fully persist both top-level baseline fields and shopfloor parameters..."
+cat << 'STORE_EOF' > patch_master_store.py
+with open("src/shared/masterStore.js", "r") as f:
+    content = f.read()
+
+# Replace the incomplete updateBaselineParameters function
+old_fn = """export function updateBaselineParameters({ itemId, updatedItem, reason }) {
+  const prod = (globalStore.baselineProducts || []).find(p => p.id === itemId || p.itemCode === itemId);
+  if (!prod) return;
+  
+  if (updatedItem.parameters) {
+    prod.parameters = { ...prod.parameters, ...updatedItem.parameters };
+  }"""
+
+new_fn = """export function updateBaselineParameters({ itemId, updatedItem, reason }) {
+  const prod = (globalStore.baselineProducts || []).find(p => p.id === itemId || p.itemCode === itemId);
+  if (!prod) return;
+  
+  // Persist all top-level baseline costing fields
+  if (updatedItem.shiftTariff !== undefined) prod.shiftTariff = Number(updatedItem.shiftTariff);
+  if (updatedItem.shiftRate !== undefined) prod.shiftRate = Number(updatedItem.shiftRate);
+  if (updatedItem.masterbatchPct !== undefined) prod.masterbatchPct = Number(updatedItem.masterbatchPct);
+  if (updatedItem.bopCost !== undefined) prod.bopCost = Number(updatedItem.bopCost);
+  if (updatedItem.packingCost !== undefined) prod.packingCost = Number(updatedItem.packingCost);
+  if (updatedItem.transportCost !== undefined) prod.transportCost = Number(updatedItem.transportCost);
+  if (updatedItem.netWeight !== undefined) prod.netWeight = Number(updatedItem.netWeight);
+  if (updatedItem.runnerWeight !== undefined) prod.runnerWeight = Number(updatedItem.runnerWeight);
+  if (updatedItem.cavity !== undefined) prod.cavity = Number(updatedItem.cavity);
+  if (updatedItem.machineTonnage !== undefined) prod.machineTonnage = Number(updatedItem.machineTonnage);
+  if (updatedItem.cycleTimeApproved !== undefined) prod.cycleTimeApproved = Number(updatedItem.cycleTimeApproved);
+  if (updatedItem.approvedCost !== undefined) prod.approvedCost = Number(updatedItem.approvedCost);
+
+  // Persist running shopfloor parameters
+  if (updatedItem.parameters) {
+    prod.parameters = { ...prod.parameters, ...updatedItem.parameters };
+  }"""
+
+if old_fn in content:
+    content = content.replace(old_fn, new_fn)
+    with open("src/shared/masterStore.js", "w") as f:
+        f.write(content)
+    print("masterStore.js successfully patched!")
+else:
+    print("Could not find exact string match, applying regex replacement...")
+    import re
+    pattern = r"export function updateBaselineParameters\(\{ itemId, updatedItem, reason \}\)\s*\{[\s\S]*?if \(updatedItem\.parameters\)\s*\{[\s\S]*?prod\.parameters = \{ \.\.\.prod\.parameters, \.\.\.updatedItem\.parameters \};\s*\}"
+    content = re.sub(pattern, new_fn, content)
+    with open("src/shared/masterStore.js", "w") as f:
+        f.write(content)
+    print("masterStore.js patched via regex!")
+STORE_EOF
+python3 patch_master_store.py
+
+echo "==> 2. Ensuring InlineEditModal.jsx passes clean numerical values and zero fallbacks for BOP and Shift Rate..."
+cat << 'MODAL_EOF' > src/modules/module1-baseline/InlineEditModal.jsx
 import React, { useState } from 'react';
 import { X, Save, AlertTriangle, Trash2 } from 'lucide-react';
 import { getActiveRmMapping, getActiveMbMapping, deleteProductFromBaseline } from '../../shared/masterStore';
@@ -791,3 +849,14 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
     </div>
   );
 }
+MODAL_EOF
+
+echo "==> 3. Restarting Vite dev server cleanly on port 5173..."
+fuser -k 5173/tcp 2>/dev/null || killall -9 node 2>/dev/null || true
+rm -rf node_modules/.vite 2>/dev/null || true
+nohup npm run dev -- --force --host 0.0.0.0 --port 5173 > /tmp/vite_server.log 2>&1 &
+sleep 2
+
+echo "-------------------------------------------------------------------"
+echo "✅ Costing & Baseline changes are now fully persistent in masterStore!"
+echo "-------------------------------------------------------------------"

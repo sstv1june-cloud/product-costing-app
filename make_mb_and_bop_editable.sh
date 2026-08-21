@@ -1,5 +1,10 @@
+#!/usr/bin/env bash
+set -e
+
+echo "==> Updating InlineEditModal.jsx with dual-column inputs for MB % and BOP cost..."
+cat << 'MODAL_EOF' > src/modules/module1-baseline/InlineEditModal.jsx
 import React, { useState } from 'react';
-import { X, Save, AlertTriangle, Trash2 } from 'lucide-react';
+import { X, Save, AlertTriangle, TrendingUp, TrendingDown, Trash2 } from 'lucide-react';
 import { getActiveRmMapping, getActiveMbMapping, deleteProductFromBaseline } from '../../shared/masterStore';
 import { 
   calculateAtombergCost, 
@@ -18,69 +23,37 @@ export {
 export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
   if (!isOpen || !item) return null;
 
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const isAtomberg = (item.vendor || '').toLowerCase().includes('atomberg');
   const rmInfo = getActiveRmMapping(item.approvedRm, item.vendor, '2026-08-01');
   const mbInfo = getActiveMbMapping(item.vendor, '2026-08-01');
 
-  const handleDelete = () => {
-    deleteProductFromBaseline(item.itemCode, item.vendor);
-    setShowDeleteConfirm(false);
-    onClose();
-  };
-
   const params = item.parameters || {};
 
-  // Part Weights
+  // Net weight & Runner weight
   const [netWt, setNetWt] = useState(params.runningNetWeight ?? item.netWeight ?? (isAtomberg ? 37 : 197));
   const [runnerWt, setRunnerWt] = useState(params.runningRunnerWeight ?? item.runnerWeight ?? (isAtomberg ? 1 : 40));
 
-  // Dual MB %
-  const parsedBaseMb = Number(item.masterbatchPct !== undefined && item.masterbatchPct !== null ? item.masterbatchPct : (isAtomberg ? 4.0 : 0.0));
-  const cleanBaseMb = parsedBaseMb > 0 && parsedBaseMb < 1 ? parsedBaseMb * 100 : parsedBaseMb;
-  const [baseMbPctVal, setBaseMbPctVal] = useState(cleanBaseMb);
+  // Dual-column editable MB % (Line 13)
+  const initialBaseMbPct = Number(item.masterbatchPct !== undefined ? item.masterbatchPct : (isAtomberg ? 4.0 : 0.0));
+  const normalizedBaseMbPct = initialBaseMbPct > 0 && initialBaseMbPct < 1 ? initialBaseMbPct * 100 : initialBaseMbPct;
+  const [baseMbPctVal, setBaseMbPctVal] = useState(normalizedBaseMbPct);
   
-  const parsedActMb = Number(params.runningMbPct !== undefined && params.runningMbPct !== null ? params.runningMbPct : cleanBaseMb);
-  const cleanActMb = parsedActMb > 0 && parsedActMb < 1 ? parsedActMb * 100 : parsedActMb;
-  const [actMbPctVal, setActMbPctVal] = useState(cleanActMb);
+  const initialActMbPct = Number(params.runningMbPct !== undefined ? params.runningMbPct : normalizedBaseMbPct);
+  const normalizedActMbPct = initialActMbPct > 0 && initialActMbPct < 1 ? initialActMbPct * 100 : initialActMbPct;
+  const [actMbPctVal, setActMbPctVal] = useState(normalizedActMbPct);
 
-  // Dual BOP Cost (Strictly defaults to 0.00 if absent)
-  const initialBaseBop = item.bopCost !== undefined && item.bopCost !== null && !isNaN(Number(item.bopCost)) ? Number(item.bopCost) : (isAtomberg ? 0.00 : 0.14);
-  const [baseBopCost, setBaseBopCost] = useState(initialBaseBop);
-
-  const initialActBop = params.runningBopCost !== undefined && params.runningBopCost !== null && !isNaN(Number(params.runningBopCost)) ? Number(params.runningBopCost) : initialBaseBop;
-  const [actBopCost, setActBopCost] = useState(initialActBop);
-
-  // Dual Packing Cost
-  const initialBasePacking = item.packingCost !== undefined && item.packingCost !== null && !isNaN(Number(item.packingCost)) ? Number(item.packingCost) : (isAtomberg ? 0.86 : 0.00);
-  const [basePackingCost, setBasePackingCost] = useState(initialBasePacking);
-
-  const initialActPacking = params.runningPackingCost !== undefined && params.runningPackingCost !== null && !isNaN(Number(params.runningPackingCost)) ? Number(params.runningPackingCost) : initialBasePacking;
-  const [actPackingCost, setActPackingCost] = useState(initialActPacking);
-
-  // Dual Transport Cost
-  const initialBaseTransport = item.transportCost !== undefined && item.transportCost !== null && !isNaN(Number(item.transportCost)) ? Number(item.transportCost) : (isAtomberg ? 0.62 : 0.00);
-  const [baseTransportCost, setBaseTransportCost] = useState(initialBaseTransport);
-
-  const initialActTransport = params.runningTransportCost !== undefined && params.runningTransportCost !== null && !isNaN(Number(params.runningTransportCost)) ? Number(params.runningTransportCost) : initialBaseTransport;
-  const [actTransportCost, setActTransportCost] = useState(initialActTransport);
+  // Dual-column editable BOP / Inserts Cost (Line 19 / Line 33)
+  const [baseBopCost, setBaseBopCost] = useState(item.bopCost ?? (isAtomberg ? 5.20 : 0.14));
+  const [actBopCost, setActBopCost] = useState(params.runningBopCost ?? item.bopCost ?? (isAtomberg ? 5.20 : 0.14));
 
   // Cycle time, Cavity, Tonnage
   const [cycleTime, setCycleTime] = useState(params.runningCycleTime ?? item.cycleTimeApproved ?? item.cycleTime ?? (isAtomberg ? 47 : 56));
   const [cavity, setCavity] = useState(params.runningCavity ?? item.cavity ?? 2);
   const [tonnage, setTonnage] = useState(params.runningTonnage ?? item.machineTonnage ?? (isAtomberg ? 200 : 450));
   
-  // Dual Shift Tariff (Strictly reads uploaded rate or defaults)
-  const initialCostingTariff = item.shiftTariff !== undefined && item.shiftTariff !== null && !isNaN(Number(item.shiftTariff)) 
-    ? Number(item.shiftTariff) 
-    : (item.shiftRate !== undefined && item.shiftRate !== null && !isNaN(Number(item.shiftRate)) ? Number(item.shiftRate) : (isAtomberg ? 2000 : 4600));
-  const [costingTariff, setCostingTariff] = useState(initialCostingTariff);
-
-  const initialActualTariff = params.runningShiftTariff !== undefined && params.runningShiftTariff !== null && !isNaN(Number(params.runningShiftTariff))
-    ? Number(params.runningShiftTariff)
-    : initialCostingTariff;
-  const [actualTariff, setActualTariff] = useState(initialActualTariff);
-
+  // Dual-column editable Shift Tariff
+  const [costingTariff, setCostingTariff] = useState(item.shiftTariff ?? (isAtomberg ? 2000 : 4600));
+  const [actualTariff, setActualTariff] = useState(params.runningShiftTariff ?? item.shiftTariff ?? (isAtomberg ? 2000 : 4600));
   const [reason, setReason] = useState("Shopfloor parameters & cost verification");
 
   if (isAtomberg) {
@@ -92,7 +65,7 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
     const appMbBase = Number(mbInfo.approvedMbPrice || item.masterbatchRate || 254.00);
     const actMbBase = Number(mbInfo.activeMbPrice || 258.54);
 
-    // Baseline Contract Calculation
+    // Baseline Math
     const baseRmLanded = appRmBase + (appRmBase * 0.01) + 1.50;
     const baseMbLanded = appMbBase + (appMbBase * 0.01) + 2.00;
     const baseMbFraction = Number(baseMbPctVal || 0) / 100;
@@ -105,19 +78,19 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
     const baseRmBop = baseRmCost + baseBop;
     const baseCav = Number(item.cavity || 2);
     const baseCt = Number(item.cycleTimeApproved || item.cycleTime || 47);
-    const basePartsShift = (28800.0 / (baseCt > 0 ? baseCt : 1)) * 0.90 * baseCav;
+    const basePartsShift = (28800.0 / baseCt) * 0.90 * baseCav;
     const baseProcessCost = basePartsShift > 0 ? (Number(costingTariff) / basePartsShift) : 0;
     const baseTotalProcess = baseProcessCost + (0.03 * baseBop) + 1.73;
     const baseProfitOh = (baseRmCost + baseTotalProcess) * 0.12;
     const baseInprocRej = (baseRmBop + baseTotalProcess) * 0.04;
     const baseRunnerRec = -25.0 * (baseRunnerWt / 1000.0);
-    const basePacking = Number(basePackingCost || 0.86);
-    const baseTransport = Number(baseTransportCost || 0.62);
+    const basePacking = 0.00;
+    const baseTransport = 0.86;
     const baseMouldMaint = 0.02 * baseTotalProcess;
     const baseOther = 0.00;
     const baseFinalLanded = baseRmCost + baseBop + baseTotalProcess + baseProfitOh + baseInprocRej + baseRunnerRec + basePacking + baseTransport + baseMouldMaint + baseOther;
 
-    // Actual Running Calculation
+    // Actual Running Math
     const actRmLanded = actRmBase + (actRmBase * 0.01) + 1.50;
     const actMbLanded = actMbBase + (actMbBase * 0.01) + 2.00;
     const actMbFraction = Number(actMbPctVal || 0) / 100;
@@ -130,14 +103,14 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
     const actRmBop = actRmCost + actBop;
     const actCav = Number(cavity);
     const actCt = Number(cycleTime);
-    const actPartsShift = (28800.0 / (actCt > 0 ? actCt : 1)) * 0.90 * actCav;
+    const actPartsShift = (28800.0 / actCt) * 0.90 * actCav;
     const actProcessCost = actPartsShift > 0 ? (Number(actualTariff) / actPartsShift) : 0;
     const actTotalProcess = actProcessCost + (0.03 * actBop) + 1.73;
     const actProfitOh = (actRmCost + actTotalProcess) * 0.12;
     const actInprocRej = (actRmBop + actTotalProcess) * 0.04;
     const actRunnerRec = -25.0 * (actRunnerWt / 1000.0);
-    const actPacking = Number(actPackingCost || 0.86);
-    const actTransport = Number(actTransportCost || 0.62);
+    const actPacking = 0.00;
+    const actTransport = 0.86;
     const actMouldMaint = 0.02 * actTotalProcess;
     const actOther = 0.00;
     const actFinalLanded = actRmCost + actBop + actTotalProcess + actProfitOh + actInprocRej + actRunnerRec + actPacking + actTransport + actMouldMaint + actOther;
@@ -161,12 +134,13 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
         sn: 13, 
         desc: 'MB %', 
         uom: '%', 
-        isSpecialEdit: true,
+        isDualEdit: true,
         costingVal: baseMbPctVal,
         setCostingVal: setBaseMbPctVal,
         actualVal: actMbPctVal,
         setActualVal: setActMbPctVal,
-        delta: `${(Number(baseMbPctVal || 0) - Number(actMbPctVal || 0)).toFixed(2)}%`
+        delta: `${(Number(baseMbPctVal || 0) - Number(actMbPctVal || 0)).toFixed(2)}%`,
+        isSpecialEdit: true
       },
       { sn: 14, desc: 'RM cost (PP + MB) /KG', uom: '₹/kg', costing: `₹${baseRmComb.toFixed(2)}`, actual: `₹${actRmComb.toFixed(2)}`, delta: `₹${(baseRmComb - actRmComb).toFixed(2)}` },
       { sn: 15, desc: 'Part weight grams', uom: 'Gms', costing: `${basePartWt.toFixed(2)}g`, isInput: true, inputType: 'netWt', actual: netWt, delta: `${(basePartWt - Number(netWt)).toFixed(2)}g` },
@@ -177,12 +151,13 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
         sn: 19, 
         desc: 'Inserts / BOP cost', 
         uom: '₹/pc', 
-        isSpecialEdit: true,
+        isDualEdit: true,
         costingVal: baseBopCost,
         setCostingVal: setBaseBopCost,
         actualVal: actBopCost,
         setActualVal: setActBopCost,
-        delta: `₹${(Number(baseBopCost || 0) - Number(actBopCost || 0)).toFixed(2)}`
+        delta: `₹${(Number(baseBopCost || 0) - Number(actBopCost || 0)).toFixed(2)}`,
+        isSpecialEdit: true
       },
       { sn: 20, desc: 'RM + BOP Cost', uom: '₹/pc', costing: `₹${baseRmBop.toFixed(2)}`, actual: `₹${actRmBop.toFixed(2)}`, delta: `₹${(baseRmBop - actRmBop).toFixed(2)}`, isSubtotal: true },
       { sn: 21, desc: 'M/c tonnage', uom: 'T', costing: `${item.machineTonnage || 200}T`, isInput: true, inputType: 'tonnage', actual: tonnage, delta: (Number(item.machineTonnage || 200) - Number(tonnage)) },
@@ -198,31 +173,11 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
       { sn: 31, desc: 'Profit & OH', uom: '12%', costing: `₹${baseProfitOh.toFixed(2)}`, actual: `₹${actProfitOh.toFixed(2)}`, delta: `₹${(baseProfitOh - actProfitOh).toFixed(2)}` },
       { sn: 32, desc: 'Inprocess Rejection', uom: '4%', costing: `₹${baseInprocRej.toFixed(2)}`, actual: `₹${actInprocRej.toFixed(2)}`, delta: `₹${(baseInprocRej - actInprocRej).toFixed(2)}` },
       { sn: 33, desc: 'Runner recovery cost', uom: '₹25/kg', costing: `- ₹${Math.abs(baseRunnerRec).toFixed(2)}`, actual: `- ₹${Math.abs(actRunnerRec).toFixed(2)}`, delta: `₹${(baseRunnerRec - actRunnerRec).toFixed(2)}`, isHighlight: true },
-      { 
-        sn: 34, 
-        desc: 'Packing cost', 
-        uom: '₹/pc', 
-        isSpecialEdit: true,
-        costingVal: basePackingCost,
-        setCostingVal: setBasePackingCost,
-        actualVal: actPackingCost,
-        setActualVal: setActPackingCost,
-        delta: `₹${(Number(basePackingCost || 0) - Number(actPackingCost || 0)).toFixed(2)}`
-      },
-      { 
-        sn: 35, 
-        desc: 'Transport cost', 
-        uom: '₹/pc', 
-        isSpecialEdit: true,
-        costingVal: baseTransportCost,
-        setCostingVal: setBaseTransportCost,
-        actualVal: actTransportCost,
-        setActualVal: setActTransportCost,
-        delta: `₹${(Number(baseTransportCost || 0) - Number(actTransportCost || 0)).toFixed(2)}`
-      },
+      { sn: 34, desc: 'Packing cost', uom: '₹/pc', costing: '₹0.00', actual: '₹0.00', delta: '₹0.00' },
+      { sn: 35, desc: 'Transport cost', uom: '₹/pc', costing: '₹0.86', actual: '₹0.86', delta: '₹0.00' },
       { sn: 36, desc: 'Mould maintenance cost', uom: '2%', costing: `₹${baseMouldMaint.toFixed(2)}`, actual: `₹${actMouldMaint.toFixed(2)}`, delta: `₹${(baseMouldMaint - actMouldMaint).toFixed(2)}` },
       { sn: 37, desc: 'Other Cost', uom: '₹/pc', costing: '₹0.00', actual: '₹0.00', delta: '₹0.00' },
-      { sn: 38, desc: 'FINAL LANDED COST', uom: '₹/pc', costing: `₹${baseFinalLanded.toFixed(2)}`, actual: `₹${actFinalLanded.toFixed(2)}`, delta: `₹${profitLossDelta >= 0 ? '+' : ''}${profitLossDelta.toFixed(2)}`, isTotal: true }
+      { sn: 38, desc: 'Final Landed cost', uom: '₹/pc', costing: `₹${baseFinalLanded.toFixed(2)}`, actual: `₹${actFinalLanded.toFixed(2)}`, delta: `₹${profitLossDelta >= 0 ? '+' : ''}${profitLossDelta.toFixed(2)}`, isTotal: true }
     ];
 
     const handleSaveAtomberg = () => {
@@ -230,27 +185,21 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
         updatedItem: {
           ...item,
           shiftTariff: Number(costingTariff),
-          shiftRate: Number(costingTariff),
           masterbatchPct: Number(baseMbPctVal),
           bopCost: Number(baseBopCost),
-          packingCost: Number(basePackingCost),
-          transportCost: Number(baseTransportCost),
-          approvedCost: Number(baseFinalLanded.toFixed(2)),
           parameters: {
             ...item.parameters,
             runningNetWeight: Number(netWt),
             runningRunnerWeight: Number(runnerWt),
             runningMbPct: Number(actMbPctVal),
             runningBopCost: Number(actBopCost),
-            runningPackingCost: Number(actPackingCost),
-            runningTransportCost: Number(actTransportCost),
             runningCycleTime: Number(cycleTime),
             runningCavity: Number(cavity),
             runningTonnage: Number(tonnage),
             runningShiftTariff: Number(actualTariff)
           }
         },
-        changeType: "Atomberg Spec & Baseline Cost Adjustment",
+        changeType: "Atomberg Spec Adjustment",
         reason
       });
     };
@@ -259,35 +208,6 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
       <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-3 z-50 text-xs font-sans">
         <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full p-5 space-y-4 border border-slate-300 max-h-[94vh] flex flex-col justify-between relative">
           
-          {/* Delete Popup */}
-          {showDeleteConfirm && (
-            <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-sm z-60 rounded-2xl flex items-center justify-center p-6">
-              <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border-2 border-rose-500 text-center space-y-4">
-                <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto">
-                  <AlertTriangle className="w-6 h-6" />
-                </div>
-                <h3 className="text-base font-bold text-slate-900">Delete Product Baseline?</h3>
-                <p className="text-xs text-slate-600">
-                  Are you sure you want to delete <span className="font-bold text-slate-900 font-mono">[{item.itemCode}] {item.componentName}</span>?
-                </p>
-                <div className="flex justify-center gap-3 pt-2">
-                  <button 
-                    onClick={() => setShowDeleteConfirm(false)} 
-                    className="px-4 py-2 border border-slate-300 rounded-xl hover:bg-slate-50 font-bold cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    onClick={handleDelete} 
-                    className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-md shadow-rose-600/30 cursor-pointer flex items-center gap-1.5"
-                  >
-                    <Trash2 className="w-4 h-4" /> Yes, Delete Product
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Header */}
           <div className="flex justify-between items-start border-b border-slate-200 pb-3">
             <div>
@@ -301,7 +221,7 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
             <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 cursor-pointer"><X className="w-5 h-5" /></button>
           </div>
 
-          {/* Top 3 Cards */}
+          {/* Top 3 KPI Cards */}
           <div className="grid grid-cols-3 gap-3">
             <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
               <div className="text-[10px] font-bold text-slate-400 uppercase">APPROVED BASELINE CONTRACT</div>
@@ -319,7 +239,7 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
             </div>
           </div>
 
-          {/* Table */}
+          {/* Full Table */}
           <div className="border border-slate-200 rounded-xl overflow-hidden max-h-[50vh] overflow-y-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead className="bg-slate-100 text-slate-700 uppercase text-[10px] font-bold sticky top-0 z-10">
@@ -356,7 +276,6 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
                         <td className="py-2 px-4 text-right">
                           <input 
                             type="number" 
-                            step="any"
                             value={r.costingVal} 
                             onChange={e => r.setCostingVal(e.target.value)} 
                             className="w-24 px-1.5 py-0.5 border border-amber-400 bg-amber-50 rounded text-right font-mono font-bold text-amber-900 focus:ring-2 focus:ring-amber-500" 
@@ -365,7 +284,6 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
                         <td className="py-2 px-4 text-right">
                           <input 
                             type="number" 
-                            step="any"
                             value={r.actualVal} 
                             onChange={e => r.setActualVal(e.target.value)} 
                             className="w-24 px-1.5 py-0.5 border border-blue-500 bg-blue-50 rounded text-right font-mono font-bold text-blue-900 focus:ring-2 focus:ring-blue-500" 
@@ -385,7 +303,6 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
                         <td className="py-2 px-4 text-right">
                           <input 
                             type="number" 
-                            step="any"
                             value={costingTariff} 
                             onChange={e => setCostingTariff(e.target.value)} 
                             className="w-24 px-1.5 py-0.5 border border-amber-400 bg-amber-50 rounded text-right font-mono font-bold text-amber-900 focus:ring-2 focus:ring-amber-500" 
@@ -394,7 +311,6 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
                         <td className="py-2 px-4 text-right">
                           <input 
                             type="number" 
-                            step="any"
                             value={actualTariff} 
                             onChange={e => setActualTariff(e.target.value)} 
                             className="w-24 px-1.5 py-0.5 border border-blue-500 bg-blue-50 rounded text-right font-mono font-bold text-blue-900 focus:ring-2 focus:ring-blue-500" 
@@ -418,7 +334,6 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
                         {r.isInput ? (
                           <input 
                             type="number" 
-                            step="any"
                             value={r.actual} 
                             onChange={e => {
                               const val = e.target.value;
@@ -444,19 +359,10 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
             </table>
           </div>
 
-          {/* Footer with Delete and Save */}
+          {/* Footer */}
           <div className="flex justify-between items-center pt-2 border-t border-slate-200">
-            <button
-              onClick={() => setShowDeleteConfirm(true)}
-              className="flex items-center gap-1.5 px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs"
-            >
-              <Trash2 className="w-4 h-4 text-rose-600" /> Delete Product
-            </button>
-
-            <div className="flex items-center gap-2">
-              <button onClick={onClose} className="px-4 py-2 border rounded-xl font-bold cursor-pointer hover:bg-slate-50 text-slate-700">Cancel</button>
-              <button onClick={handleSaveAtomberg} className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold cursor-pointer flex items-center gap-1.5"><Save className="w-4 h-4" /> Save & Log Parameters</button>
-            </div>
+            <button onClick={onClose} className="px-4 py-2 border rounded-xl font-bold cursor-pointer hover:bg-slate-50 text-slate-700">Cancel</button>
+            <button onClick={handleSaveAtomberg} className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold cursor-pointer flex items-center gap-1.5"><Save className="w-4 h-4" /> Save & Log Parameters</button>
           </div>
         </div>
       </div>
@@ -508,12 +414,13 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
       sn: 6, 
       desc: 'Master Batch Required (%)', 
       uom: '%', 
-      isSpecialEdit: true,
+      isDualEdit: true,
       costingVal: baseMbPctVal,
       setCostingVal: setBaseMbPctVal,
       actualVal: actMbPctVal,
       setActualVal: setActMbPctVal,
-      delta: `${(Number(baseMbPctVal || 0) - Number(actMbPctVal || 0)).toFixed(2)}%`
+      delta: `${(Number(baseMbPctVal || 0) - Number(actMbPctVal || 0)).toFixed(2)}%`,
+      isSpecialEdit: true
     },
     { sn: 7, desc: 'No. of Cavity', uom: 'Nos', costing: item.cavity || 2, isInput: true, inputType: 'cavity', actual: cavity, delta: (Number(item.cavity || 2) - Number(cavity)) },
     { sn: 8, desc: 'Runner Weight', uom: 'Gms', costing: `${item.runnerWeight || 40}g`, isInput: true, inputType: 'runnerWt', actual: runnerWt, delta: `${(Number(item.runnerWeight || 40) - Number(runnerWt)).toFixed(1)}g` },
@@ -545,12 +452,13 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
       sn: 33, 
       desc: 'Insert / Hinge hole cap cost / Other cost', 
       uom: 'Rs', 
-      isSpecialEdit: true,
+      isDualEdit: true,
       costingVal: baseBopCost,
       setCostingVal: setBaseBopCost,
       actualVal: actBopCost,
       setActualVal: setActBopCost,
-      delta: `₹${(Number(baseBopCost || 0) - Number(actBopCost || 0)).toFixed(2)}`
+      delta: `₹${(Number(baseBopCost || 0) - Number(actBopCost || 0)).toFixed(2)}`,
+      isSpecialEdit: true
     },
     { sn: 34, desc: 'Mould Maintenance Provision', uom: 'Rs', costing: '-', actual: '-', delta: '-' },
     { sn: 35, desc: 'Quality Inspection Cost', uom: 'Rs', costing: '-', actual: '-', delta: '-' },
@@ -566,7 +474,11 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
         shiftTariff: Number(costingTariff),
         masterbatchPct: Number(baseMbPctVal),
         bopCost: Number(baseBopCost),
-        approvedCost: Number(baseCalc.totalCost?.toFixed(2)),
+        netWeight: Number(netWt),
+        runnerWeight: Number(runnerWt),
+        machineTonnage: Number(tonnage),
+        cycleTimeApproved: Number(cycleTime),
+        cavity: Number(cavity),
         parameters: {
           ...item.parameters,
           runningNetWeight: Number(netWt),
@@ -588,35 +500,6 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
     <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-3 z-50 text-xs font-sans">
       <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full p-5 space-y-4 border border-slate-300 max-h-[94vh] flex flex-col justify-between relative">
         
-        {/* Delete Popup */}
-        {showDeleteConfirm && (
-          <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-sm z-60 rounded-2xl flex items-center justify-center p-6">
-            <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border-2 border-rose-500 text-center space-y-4">
-              <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto">
-                <AlertTriangle className="w-6 h-6" />
-              </div>
-              <h3 className="text-base font-bold text-slate-900">Delete Product Baseline?</h3>
-              <p className="text-xs text-slate-600">
-                Are you sure you want to delete <span className="font-bold text-slate-900 font-mono">[{item.itemCode}] {item.componentName}</span>?
-              </p>
-              <div className="flex justify-center gap-3 pt-2">
-                <button 
-                  onClick={() => setShowDeleteConfirm(false)} 
-                  className="px-4 py-2 border border-slate-300 rounded-xl hover:bg-slate-50 font-bold cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={handleDelete} 
-                  className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-md shadow-rose-600/30 cursor-pointer flex items-center gap-1.5"
-                >
-                  <Trash2 className="w-4 h-4" /> Yes, Delete Product
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Header */}
         <div className="flex justify-between items-start border-b border-slate-200 pb-3">
           <div>
@@ -630,7 +513,7 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
           <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 cursor-pointer"><X className="w-5 h-5" /></button>
         </div>
 
-        {/* Top 3 Cards */}
+        {/* Top 3 KPI Cards */}
         <div className="grid grid-cols-3 gap-3">
           <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
             <div className="text-[10px] font-bold text-slate-400 uppercase">COSTING (BASELINE)</div>
@@ -648,7 +531,7 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
           </div>
         </div>
 
-        {/* Table */}
+        {/* Full Table */}
         <div className="border border-slate-200 rounded-xl overflow-hidden max-h-[50vh] overflow-y-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead className="bg-slate-100 text-slate-700 uppercase text-[10px] font-bold sticky top-0 z-10">
@@ -685,7 +568,6 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
                       <td className="py-2 px-4 text-right">
                         <input 
                           type="number" 
-                          step="any"
                           value={r.costingVal} 
                           onChange={e => r.setCostingVal(e.target.value)} 
                           className="w-24 px-1.5 py-0.5 border border-amber-400 bg-amber-50 rounded text-right font-mono font-bold text-amber-900 focus:ring-2 focus:ring-amber-500" 
@@ -694,7 +576,6 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
                       <td className="py-2 px-4 text-right">
                         <input 
                           type="number" 
-                          step="any"
                           value={r.actualVal} 
                           onChange={e => r.setActualVal(e.target.value)} 
                           className="w-24 px-1.5 py-0.5 border border-blue-500 bg-blue-50 rounded text-right font-mono font-bold text-blue-900 focus:ring-2 focus:ring-blue-500" 
@@ -714,7 +595,6 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
                       <td className="py-2 px-4 text-right">
                         <input 
                           type="number" 
-                          step="any"
                           value={costingTariff} 
                           onChange={e => setCostingTariff(e.target.value)} 
                           className="w-24 px-1.5 py-0.5 border border-amber-400 bg-amber-50 rounded text-right font-mono font-bold text-amber-900 focus:ring-2 focus:ring-amber-500" 
@@ -723,7 +603,6 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
                       <td className="py-2 px-4 text-right">
                         <input 
                           type="number" 
-                          step="any"
                           value={actualTariff} 
                           onChange={e => setActualTariff(e.target.value)} 
                           className="w-24 px-1.5 py-0.5 border border-blue-500 bg-blue-50 rounded text-right font-mono font-bold text-blue-900 focus:ring-2 focus:ring-blue-500" 
@@ -747,7 +626,6 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
                       {r.isInput ? (
                         <input 
                           type="number" 
-                          step="any"
                           value={r.actual} 
                           onChange={e => {
                             const val = e.target.value;
@@ -773,21 +651,21 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
           </table>
         </div>
 
-        {/* Footer with Delete and Save */}
+        {/* Footer */}
         <div className="flex justify-between items-center pt-2 border-t border-slate-200">
-          <button
-            onClick={() => setShowDeleteConfirm(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs"
-          >
-            <Trash2 className="w-4 h-4 text-rose-600" /> Delete Product
-          </button>
-
-          <div className="flex items-center gap-2">
-            <button onClick={onClose} className="px-4 py-2 border rounded-xl font-bold cursor-pointer hover:bg-slate-50 text-slate-700">Cancel</button>
-            <button onClick={handleSaveHaier} className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold cursor-pointer flex items-center gap-1.5"><Save className="w-4 h-4" /> Save & Log Parameters</button>
-          </div>
+          <button onClick={onClose} className="px-4 py-2 border rounded-xl font-bold cursor-pointer hover:bg-slate-50 text-slate-700">Cancel</button>
+          <button onClick={handleSaveHaier} className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold cursor-pointer flex items-center gap-1.5"><Save className="w-4 h-4" /> Save & Log Parameters</button>
         </div>
       </div>
     </div>
   );
 }
+MODAL_EOF
+
+echo "==> Restarting Vite dev server cleanly on port 5173..."
+fuser -k 5173/tcp 2>/dev/null || killall -9 node 2>/dev/null || true
+rm -rf node_modules/.vite 2>/dev/null || true
+nohup npm run dev -- --force --host 0.0.0.0 --port 5173 > /tmp/vite_server.log 2>&1 &
+sleep 2
+
+echo "==> Dual-column editing enabled for MB % and BOP cost!"

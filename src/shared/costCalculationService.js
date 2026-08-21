@@ -1,5 +1,5 @@
 // ============================================================================
-// UNIVERSAL COST CALCULATION SERVICE (Exact Excel Formula & Manual Tariff)
+// UNIVERSAL COST CALCULATION SERVICE
 // ============================================================================
 
 export function calculateHaierCost(p = {}) {
@@ -31,9 +31,6 @@ export function calculateHaierCost(p = {}) {
 
   const subTotal = totalRmCost + productionCostPerPc;
 
-  // Exact Excel Line 24 Formula:
-  // = 3%*E41 + 3%*E42 + 3%*E34 + 2%*E42 + 0.8 + 1.5 + 0 + 0.5
-  // E41 = productionCostPerPc, E42 = subTotal, E34 = totalRmCost
   const line24OH = (0.03 * productionCostPerPc) + (0.03 * subTotal) + (0.03 * totalRmCost) + (0.02 * subTotal) + 0.80 + 1.50 + 0.00 + 0.50;
 
   const iccReduce = -(subTotal * 0.0044187);
@@ -70,14 +67,14 @@ export function calculateAtombergCost(p = {}) {
   const rmFreight = Number(p.rmFreight || 1.50);
   const rmLanded = rmBase + rmIcc + rmFreight;
 
-  const mbBase = Number(p.mbBase || p.masterbatchRate || 250.0);
+  const mbBase = Number(p.mbBase || p.masterbatchRate || 254.0);
   const mbIcc = mbBase * 0.01;
   const mbFreight = Number(p.mbFreight || 2.00);
   const mbLanded = mbBase + mbIcc + mbFreight;
 
   const rawMbPct = Number(p.mbPct !== undefined ? p.mbPct : (p.masterbatchPct !== undefined ? p.masterbatchPct : 4.0));
   const mbPct = rawMbPct > 1 ? rawMbPct / 100 : rawMbPct;
-  const rmCombRate = rmLanded * (1.0 - mbPct) + mbLanded * mbPct;
+  const rmCombRate = (rmLanded * (1.0 - mbPct)) + (mbLanded * mbPct);
 
   const partWt = Number(p.partWt || p.netWeight || 37.0);
   const runnerWt = Number(p.runnerWt || p.runnerWeight || 1.0);
@@ -100,16 +97,25 @@ export function calculateAtombergCost(p = {}) {
 
   const profitOh = (rmCost + totalProcessCost) * 0.12;
   const inprocessRejection = (rmCost + bopCost + totalProcessCost) * 0.04;
-  const packingCost = Number(p.packingCost || 0.86);
-  const transportCost = Number(p.transportCost || 0.62);
+  const runnerRecovery = -25.0 * (runnerWt / 1000.0);
+  
+  // Exact Atomberg breakdown
+  const packingCost = Number(p.packingCost !== undefined ? p.packingCost : 0.86);
+  const transportCost = Number(p.transportCost !== undefined ? p.transportCost : 0.62);
+  const mouldMaint = 0.02 * totalProcessCost;
 
-  const finalLanded = rmCost + bopCost + totalProcessCost + profitOh + inprocessRejection + packingCost + transportCost;
+  const finalLanded = rmCost + bopCost + totalProcessCost + profitOh + inprocessRejection + runnerRecovery + packingCost + transportCost + mouldMaint;
 
   return {
     rmCost,
     processCost,
     totalProcessCost,
     profitOh,
+    inprocessRejection,
+    runnerRecovery,
+    packingCost,
+    transportCost,
+    mouldMaint,
     finalLanded: Number(finalLanded.toFixed(2)),
     approvedBaseline: Number(finalLanded.toFixed(2)),
     actualRunning: Number(finalLanded.toFixed(2)),

@@ -1,6 +1,5 @@
 // ============================================================================
-// DEDICATED LIVE PRODUCT COST REPOSITORY (productCostRepo.js)
-// Exact parameter matching with InlineEditModal.jsx
+// LIVE PRODUCT COST REPOSITORY
 // ============================================================================
 
 import { globalStore, subscribeStore, getActiveRmMapping, getActiveMbMapping } from './masterStore';
@@ -25,25 +24,28 @@ export function refreshAllProductCosts() {
     const mbInfo = getActiveMbMapping(item.vendor, '2026-08-01');
 
     const params = item.parameters || {};
-    const netWt = params.runningNetWeight ?? item.netWeight ?? 197;
-    const runnerWt = params.runningRunnerWeight ?? item.runnerWeight ?? 40;
-    const mbPctVal = params.runningMbPct !== undefined ? params.runningMbPct : (item.masterbatchPct ?? 0.0);
-    const bopCost = params.runningBopCost ?? item.bopCost ?? 0.14;
-    const cycleTime = params.runningCycleTime ?? item.cycleTimeApproved ?? item.cycleTime ?? 48;
+    const netWt = params.runningNetWeight ?? item.netWeight ?? (isAtomberg ? 37 : 197);
+    const runnerWt = params.runningRunnerWeight ?? item.runnerWeight ?? (isAtomberg ? 1 : 40);
+    const mbPctVal = params.runningMbPct !== undefined ? params.runningMbPct : (item.masterbatchPct ?? (isAtomberg ? 4.0 : 0.0));
+    const bopCost = params.runningBopCost ?? item.bopCost ?? (isAtomberg ? 0.0 : 0.14);
+    const packingCost = params.runningPackingCost ?? item.packingCost ?? (isAtomberg ? 0.86 : 0.0);
+    const transportCost = params.runningTransportCost ?? item.transportCost ?? (isAtomberg ? 0.62 : 0.0);
+    const cycleTime = params.runningCycleTime ?? item.cycleTimeApproved ?? item.cycleTime ?? (isAtomberg ? 47 : 56);
     const cavity = params.runningCavity ?? item.cavity ?? 2;
-    const tonnage = params.runningTonnage ?? item.machineTonnage ?? 450;
+    const tonnage = params.runningTonnage ?? item.machineTonnage ?? (isAtomberg ? 200 : 450);
+    const costingTariff = item.shiftTariff ?? (isAtomberg ? 2000 : 4600);
+    const actualTariff = params.runningShiftTariff ?? item.shiftTariff ?? (isAtomberg ? 2000 : 4600);
 
     let approvedBaseline = 0;
     let simulatedActual = 0;
 
     if (isAtomberg) {
-      // ---------- EXACT ATOMBERG CALCULATION FROM InlineEditModal ----------
-      const approvedRmBase = Number(rmInfo.approvedPrice || 140.00);
-      const approvedMbBase = Number(mbInfo.approvedMbPrice || 254.00);
+      const approvedRmBase = Number(rmInfo.approvedPrice || item.approvedRmRate || 131.00);
+      const approvedMbBase = Number(mbInfo.approvedMbPrice || item.masterbatchRate || 254.00);
       const actualRmBase = Number(rmInfo.activeWaPrice || 135.83);
       const actualMbBase = Number(mbInfo.activeMbPrice || 258.54);
 
-      const baseP = {
+      const baseCalc = calculateAtombergCost({
         vendor: 'Atomberg',
         rmBase: approvedRmBase,
         mbBase: approvedMbBase,
@@ -54,14 +56,14 @@ export function refreshAllProductCosts() {
         cycleTime: Number(item.cycleTimeApproved || item.cycleTime || 47),
         cavity: Number(item.cavity || 2),
         tonnage: Number(item.machineTonnage || 200),
+        shiftTariff: Number(costingTariff),
         postOpCost: 1.73,
-        packingCost: 0.86,
-        transportCost: 0.62
-      };
-      const baseCalc = calculateAtombergCost(baseP);
+        packingCost: Number(item.packingCost || 0.86),
+        transportCost: Number(item.transportCost || 0.62)
+      });
 
-      const runningP = {
-        ...baseP,
+      const runCalc = calculateAtombergCost({
+        vendor: 'Atomberg',
         rmBase: actualRmBase,
         mbBase: actualMbBase,
         partWt: Number(netWt),
@@ -70,15 +72,17 @@ export function refreshAllProductCosts() {
         bopCost: Number(bopCost),
         cycleTime: Number(cycleTime),
         cavity: Number(cavity),
-        tonnage: Number(tonnage)
-      };
-      const runCalc = calculateAtombergCost(runningP);
+        tonnage: Number(tonnage),
+        shiftTariff: Number(actualTariff),
+        postOpCost: 1.73,
+        packingCost: Number(packingCost),
+        transportCost: Number(transportCost)
+      });
 
       approvedBaseline = Number(baseCalc.finalLanded || 0);
       simulatedActual = Number(runCalc.finalLanded || 0);
     } else {
-      // ---------- EXACT HAIER CALCULATION FROM InlineEditModal ----------
-      const dynamicHaierApprovedRm = Number(rmInfo.approvedPrice || item.approvedRmRate || 130.00);
+      const dynamicHaierApprovedRm = Number(rmInfo.approvedPrice || item.approvedRmRate || 136.20);
       const dynamicHaierActualRm = Number(rmInfo.activeWaPrice || 134.80);
       const dynamicHaierApprovedMb = Number(mbInfo.approvedMbPrice || item.masterbatchRate || 0.0);
 
@@ -90,8 +94,8 @@ export function refreshAllProductCosts() {
         masterbatchPct: Number(item.masterbatchPct || 0.0),
         masterbatchRate: dynamicHaierApprovedMb,
         machineTonnage: Number(item.machineTonnage || 450),
-        shiftTariff: Number((item.machineTonnage || 450) >= 650 ? 5760 : 4600),
-        cycleTime: Number(item.cycleTimeApproved || item.cycleTime || 48),
+        shiftTariff: Number(costingTariff),
+        cycleTime: Number(item.cycleTimeApproved || item.cycleTime || 56),
         bopCost: Number(item.bopCost || 0.14)
       });
 
@@ -103,13 +107,13 @@ export function refreshAllProductCosts() {
         masterbatchPct: Number(mbPctVal),
         masterbatchRate: dynamicHaierApprovedMb,
         machineTonnage: Number(tonnage),
-        shiftTariff: Number(tonnage >= 650 ? 5760 : 4600),
+        shiftTariff: Number(actualTariff),
         cycleTime: Number(cycleTime),
         bopCost: Number(bopCost)
       });
 
-      approvedBaseline = Number(baseCalc.totalCost ?? baseCalc.finalLanded ?? 0);
-      simulatedActual = Number(runCalc.totalCost ?? runCalc.finalLanded ?? 0);
+      approvedBaseline = Number(baseCalc.totalCost || 0);
+      simulatedActual = Number(runCalc.totalCost || 0);
     }
 
     const appFinal = Number(approvedBaseline.toFixed(2));
