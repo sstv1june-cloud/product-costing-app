@@ -1,10 +1,18 @@
+#!/usr/bin/env bash
+set -e
+
+echo "==> 1. Updating src/shared/masterStore.js with isolated in-memory test data & Supabase sync bypass..."
+cat << 'STORE_EOF' > src/shared/masterStore.js
+// Isolated Test Data Store for dev-v2 (No Supabase writes)
+
 export const globalStore = {
-  isGlobalLocked: true, // Default locked for protection
+  isGlobalLocked: false,
   vendors: [
     { vendorId: 'Haier', vendorName: 'Haier Appliances' },
     { vendorId: 'Atomberg', vendorName: 'Atomberg Technologies' }
   ],
 
+  // Baseline master products
   baselineProducts: [
     {
       id: 'prod-haier-1',
@@ -126,6 +134,7 @@ export const globalStore = {
     }
   ],
 
+  // RM Mappings linked to approved materials
   rmMappingsData: [
     {
       id: 'rm-map-1',
@@ -166,13 +175,13 @@ export const globalStore = {
       periodTo: '2026-08-31',
       type: 'MB',
       approvedCode: 'Smoke Grey MB (3.5%)',
-      approvedPrice: 150.00,
+      approvedPrice: 0.00,
       alt1Code: 'Smoke Grey Masterbatch Lot A',
-      alt1Price: 148.00,
+      alt1Price: 0.00,
       alt2Code: 'Smoke Grey Masterbatch Lot B',
-      alt2Price: 149.50,
+      alt2Price: 0.00,
       alt3Code: 'Smoke Grey Masterbatch Lot C',
-      alt3Price: 150.00,
+      alt3Price: 0.00,
       activeAlt: 'alt1'
     },
     {
@@ -209,42 +218,59 @@ export const globalStore = {
     }
   ],
 
+  // Rich Demo Purchases directly matching Approved & Alternate RM Grades
   purchases: [
+    // May 2026 (Month-1)
     { id: 'pur-101', date: '2026-05-04', vendor: 'Haier', grade: 'ABS 300-B Red (Prime Inward)', qty: 4500, rate: 135.50, invoiceNo: 'INV-HR-MAY01' },
     { id: 'pur-102', date: '2026-05-12', vendor: 'Haier', grade: 'GPPS SC201LV + 3.5% Smoke Grey Blend', qty: 3000, rate: 99.20, invoiceNo: 'INV-HR-MAY02' },
     { id: 'pur-103', date: '2026-05-18', vendor: 'Atomberg', grade: 'PP H110MA Prime Inward', qty: 4000, rate: 132.50, invoiceNo: 'INV-AT-MAY01' },
+
+    // June 2026 (Month-2)
     { id: 'pur-201', date: '2026-06-03', vendor: 'Haier', grade: 'ABS 300-B Red (Prime Inward)', qty: 5000, rate: 135.00, invoiceNo: 'INV-HR-JUN01' },
     { id: 'pur-202', date: '2026-06-15', vendor: 'Haier', grade: 'GPPS SC201LV + 3.5% Smoke Grey Blend', qty: 2800, rate: 98.90, invoiceNo: 'INV-HR-JUN02' },
     { id: 'pur-203', date: '2026-06-20', vendor: 'Atomberg', grade: 'PP H110MA Prime Inward', qty: 4500, rate: 133.80, invoiceNo: 'INV-AT-JUN01' },
+
+    // July 2026 (Month-3)
     { id: 'pur-301', date: '2026-07-05', vendor: 'Haier', grade: 'ABS 300-B Red (Prime Inward)', qty: 5200, rate: 134.90, invoiceNo: 'INV-HR-JUL01' },
     { id: 'pur-302', date: '2026-07-16', vendor: 'Haier', grade: 'GPPS SC201LV + 3.5% Smoke Grey Blend', qty: 3200, rate: 98.60, invoiceNo: 'INV-HR-JUL02' },
     { id: 'pur-303', date: '2026-07-22', vendor: 'Atomberg', grade: 'PP H110MA Prime Inward', qty: 5000, rate: 134.50, invoiceNo: 'INV-AT-JUL01' },
+
+    // August 2026 (Month-4 / Current)
     { id: 'pur-401', date: '2026-08-01', vendor: 'Haier', grade: 'ABS 300-B Red (Prime Inward)', qty: 6000, rate: 134.80, invoiceNo: 'INV-HR-AUG01' },
     { id: 'pur-402', date: '2026-08-08', vendor: 'Haier', grade: 'GPPS SC201LV + 3.5% Smoke Grey Blend', qty: 3500, rate: 98.40, invoiceNo: 'INV-HR-AUG02' },
     { id: 'pur-403', date: '2026-08-12', vendor: 'Atomberg', grade: 'PP H110MA Prime Inward', qty: 5500, rate: 135.83, invoiceNo: 'INV-AT-AUG01' },
     { id: 'pur-404', date: '2026-08-14', vendor: 'Atomberg', grade: 'Universal Inward MB Lot 1', qty: 800, rate: 258.54, invoiceNo: 'INV-AT-MB01' }
   ],
 
+  // Rich Demo Sales Dispatches matching Baseline Parts across Months 1-4
   sales: [
+    // May 2026 Sales
     { id: 'disp-101', date: '2026-05-10', itemCode: '0060217989D', componentName: 'End cap Bottom Ref-ABS-DC-195,220', qty: 3800, sellingPrice: 42.00, vendor: 'Haier' },
     { id: 'disp-102', date: '2026-05-15', itemCode: '0060217978E', componentName: 'CRISPER GPPS LV + 3.5% SMOKE GREY VEG BOX', qty: 1500, sellingPrice: 85.00, vendor: 'Haier' },
     { id: 'disp-103', date: '2026-05-20', itemCode: 'A101701', componentName: 'Aris Top Canopy- Gloss White', qty: 3000, sellingPrice: 14.50, vendor: 'Atomberg' },
     { id: 'disp-104', date: '2026-05-25', itemCode: 'A101703', componentName: 'Aris Top Canopy- Gloss Black', qty: 900, sellingPrice: 15.96, vendor: 'Atomberg' },
+
+    // June 2026 Sales
     { id: 'disp-201', date: '2026-06-11', itemCode: '0060217989D', componentName: 'End cap Bottom Ref-ABS-DC-195,220', qty: 4000, sellingPrice: 42.00, vendor: 'Haier' },
     { id: 'disp-202', date: '2026-06-18', itemCode: '0060217978E', componentName: 'CRISPER GPPS LV + 3.5% SMOKE GREY VEG BOX', qty: 1600, sellingPrice: 85.00, vendor: 'Haier' },
     { id: 'disp-203', date: '2026-06-22', itemCode: 'A101701', componentName: 'Aris Top Canopy- Gloss White', qty: 3200, sellingPrice: 14.50, vendor: 'Atomberg' },
     { id: 'disp-204', date: '2026-06-28', itemCode: 'A101703', componentName: 'Aris Top Canopy- Gloss Black', qty: 950, sellingPrice: 15.96, vendor: 'Atomberg' },
+
+    // July 2026 Sales
     { id: 'disp-301', date: '2026-07-10', itemCode: '0060217989D', componentName: 'End cap Bottom Ref-ABS-DC-195,220', qty: 4100, sellingPrice: 42.00, vendor: 'Haier' },
     { id: 'disp-302', date: '2026-07-15', itemCode: '0060217978E', componentName: 'CRISPER GPPS LV + 3.5% SMOKE GREY VEG BOX', qty: 1700, sellingPrice: 85.00, vendor: 'Haier' },
     { id: 'disp-303', date: '2026-07-20', itemCode: 'A101701', componentName: 'Aris Top Canopy- Gloss White', qty: 3400, sellingPrice: 14.50, vendor: 'Atomberg' },
     { id: 'disp-304', date: '2026-07-25', itemCode: 'A101703', componentName: 'Aris Top Canopy- Gloss Black', qty: 980, sellingPrice: 15.96, vendor: 'Atomberg' },
+
+    // August 2026 Sales (Current Active Testing Month)
     { id: 'disp-401', date: '2026-08-10', itemCode: '0060217989D', componentName: 'End cap Bottom Ref-ABS-DC-195,220', qty: 4200, sellingPrice: 42.00, vendor: 'Haier' },
     { id: 'disp-402', date: '2026-08-12', itemCode: '0060217978E', componentName: 'CRISPER GPPS LV + 3.5% SMOKE GREY VEG BOX', qty: 1800, sellingPrice: 85.00, vendor: 'Haier' },
     { id: 'disp-403', date: '2026-08-15', itemCode: 'A101701', componentName: 'Aris Top Canopy- Gloss White', qty: 3500, sellingPrice: 14.50, vendor: 'Atomberg' },
     { id: 'disp-404', date: '2026-08-01', itemCode: 'A101703', componentName: 'Aris Top Canopy- Gloss Black', qty: 1000, sellingPrice: 15.96, vendor: 'Atomberg' }
   ],
 
-  parameterChangeLogs: []
+  parameterChangeLogs: [],
+  changeLogs: []
 };
 
 let listeners = [];
@@ -257,68 +283,16 @@ export function notifyStore() {
   listeners.forEach(fn => fn());
 }
 
-export function addAuditLog(entry) {
-  if (!globalStore.parameterChangeLogs) globalStore.parameterChangeLogs = [];
-  globalStore.parameterChangeLogs.unshift({
-    id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-    timestamp: new Date().toLocaleString(),
-    partCode: entry.partCode || 'RM Matrix',
-    componentName: entry.componentName || 'Raw Material Spec',
-    vendor: entry.vendor || 'Haier',
-    modifications: entry.modifications || 'Updated Values',
-    costImpact: entry.costImpact || 'Updated',
-    authorizedBy: entry.authorizedBy || 'Costing Lead',
-    reason: entry.reason || 'Matrix Modification'
-  });
-}
-
 export function toggleGlobalLock() {
   globalStore.isGlobalLocked = !globalStore.isGlobalLocked;
-  addAuditLog({
-    partCode: 'Security Lock',
-    componentName: 'Page Protection Status',
-    vendor: 'System',
-    modifications: `Page switched to ${globalStore.isGlobalLocked ? 'LOCKED (Protected)' : 'UNLOCKED (Active Editing)'}`,
-    costImpact: '-',
-    reason: globalStore.isGlobalLocked ? 'Lock Applied' : 'Unlocked for Editing'
-  });
   notifyStore();
 }
 
+// In dev-v2, all changes are purely in-memory test changes (No Supabase writes)
 export function updateRmMappingRow(rowId, updatedFields, reason = 'Price / Alternate Update') {
   const row = (globalStore.rmMappingsData || []).find(r => r.id === rowId);
   if (row) {
-    const modParts = [];
-    if (updatedFields.approvedPrice !== undefined) {
-      modParts.push(`Approved Price: ₹${row.approvedPrice} ➔ ₹${updatedFields.approvedPrice}`);
-      // Also sync to matching baseline product
-      (globalStore.baselineProducts || []).forEach(p => {
-        if (p.approvedRm === row.approvedCode && p.vendor.toLowerCase() === row.vendor.toLowerCase()) {
-          p.approvedRmRate = Number(updatedFields.approvedPrice);
-        }
-      });
-    }
-    if (updatedFields.activeAlt !== undefined) {
-      modParts.push(`Active Alternate: ${row.activeAlt ? row.activeAlt.toUpperCase() : 'ALT1'} ➔ ${updatedFields.activeAlt.toUpperCase()}`);
-    }
-    if (updatedFields.alt1Code !== undefined) modParts.push(`Alt-1 Grade: ${updatedFields.alt1Code}`);
-    if (updatedFields.alt1Price !== undefined) modParts.push(`Alt-1 Price: ₹${updatedFields.alt1Price}`);
-    if (updatedFields.alt2Code !== undefined) modParts.push(`Alt-2 Grade: ${updatedFields.alt2Code}`);
-    if (updatedFields.alt2Price !== undefined) modParts.push(`Alt-2 Price: ₹${updatedFields.alt2Price}`);
-    if (updatedFields.alt3Code !== undefined) modParts.push(`Alt-3 Grade: ${updatedFields.alt3Code}`);
-    if (updatedFields.alt3Price !== undefined) modParts.push(`Alt-3 Price: ₹${updatedFields.alt3Price}`);
-
     Object.assign(row, updatedFields);
-
-    addAuditLog({
-      partCode: row.approvedCode,
-      componentName: `${row.type} (${row.vendor})`,
-      vendor: row.vendor,
-      modifications: modParts.join(' | ') || 'Fields Updated',
-      costImpact: updatedFields.approvedPrice ? `₹${updatedFields.approvedPrice}/kg` : 'Simulated',
-      reason: reason
-    });
-
     notifyStore();
   }
 }
@@ -331,14 +305,20 @@ export function updateBaselineParameters({ itemId, updatedItem, reason }) {
     prod.parameters = { ...prod.parameters, ...updatedItem.parameters };
   }
 
-  addAuditLog({
+  const logEntry = {
+    id: `param-log-${Date.now()}`,
+    timestamp: new Date().toLocaleString(),
     partCode: prod.itemCode,
     componentName: prod.componentName,
     vendor: prod.vendor,
     modifications: Object.entries(updatedItem.parameters || {}).map(([k, v]) => `${k.replace('running', '')}: ${v}`).join(', '),
     costImpact: updatedItem.delta ? `₹${Number(updatedItem.delta).toFixed(2)}` : 'Calculated',
+    authorizedBy: 'Testing Lead (Local dev-v2)',
     reason: reason || 'Parameters Updated'
-  });
+  };
+
+  if (!globalStore.parameterChangeLogs) globalStore.parameterChangeLogs = [];
+  globalStore.parameterChangeLogs.unshift(logEntry);
 
   notifyStore();
 }
@@ -363,28 +343,12 @@ export function addStagedProductsToBaseline(stagedList, vendor) {
 export function addDayWisePurchase(record) {
   if (!globalStore.purchases) globalStore.purchases = [];
   globalStore.purchases.unshift(record);
-  addAuditLog({
-    partCode: record.grade,
-    componentName: `Inward Purchase (Inv #${record.invoiceNo || '-'})`,
-    vendor: record.vendor,
-    modifications: `Qty: ${record.qty} kg @ ₹${record.rate}/kg`,
-    costImpact: `₹${record.rate}/kg`,
-    reason: 'New Purchase Lot Added'
-  });
   notifyStore();
 }
 
 export function addDayWiseSales(record) {
   if (!globalStore.sales) globalStore.sales = [];
   globalStore.sales.unshift(record);
-  addAuditLog({
-    partCode: record.itemCode,
-    componentName: record.componentName || 'Dispatch Part',
-    vendor: record.vendor,
-    modifications: `Dispatch: ${record.qty} pcs @ ₹${record.sellingPrice}`,
-    costImpact: `₹${record.sellingPrice}/pc`,
-    reason: 'New Dispatch Record Added'
-  });
   notifyStore();
 }
 
@@ -432,14 +396,6 @@ export function deleteProductFromBaseline(itemId) {
 }
 
 export function saveVendorPeriodSchedule() {
-  addAuditLog({
-    partCode: 'Period Schedule',
-    componentName: 'Vendor Period Sync',
-    vendor: 'General',
-    modifications: 'Saved current period schedule and RM mappings',
-    costImpact: 'Schedule Locked',
-    reason: 'Vendor + Period Sync Action'
-  });
   notifyStore();
 }
 
@@ -449,3 +405,12 @@ export function onboardVendorWithBlueprint({ vendorId, vendorName }) {
   }
   notifyStore();
 }
+STORE_EOF
+
+echo "==> 2. Restarting local dev server on port 5173..."
+fuser -k 5173/tcp 2>/dev/null || killall -9 node 2>/dev/null || true
+rm -rf node_modules/.vite 2>/dev/null || true
+nohup npm run dev -- --host 0.0.0.0 --port 5173 > /tmp/vite_server.log 2>&1 &
+sleep 2
+
+echo "==> Isolated demo data initialized on dev-v2!"

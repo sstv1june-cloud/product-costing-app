@@ -1,12 +1,25 @@
+#!/usr/bin/env bash
+set -e
+
+# Find exact file imported by App.jsx for RM Matrix
+RM_FILE=$(grep -rn "module2" src/App.jsx 2>/dev/null | awk '{print $NF}' | tr -d "';\"," || true)
+if [ -z "$RM_FILE" ]; then
+  TARGET_PATH="src/modules/module2-rm-matrix/RMPriceMatrixPage.jsx"
+else
+  TARGET_PATH="src/${RM_FILE#./}.jsx"
+  [ -f "$TARGET_PATH" ] || TARGET_PATH="src/${RM_FILE#./}"
+fi
+
+echo "==> Updating target RM file: $TARGET_PATH"
+
+cat << 'PAGE_EOF' > "$TARGET_PATH"
 import React, { useState, useEffect } from 'react';
 import { 
   globalStore, 
   subscribeStore, 
   updateRmMappingRow, 
   addDayWisePurchase, 
-  addDayWiseSales,
-  toggleGlobalLock,
-  saveVendorPeriodSchedule
+  addDayWiseSales 
 } from '../../shared/masterStore';
 import { 
   Lock, 
@@ -73,13 +86,7 @@ export default function RMPriceMatrixPage() {
     updateRmMappingRow(rowId, { [`${altSlot}Price`]: Number(newPrice) || 0 }, `Updated ${altSlot.toUpperCase()} price`);
   };
 
-  const handleApprovedPriceChange = (rowId, newPrice) => {
-    if (isLocked) return;
-    updateRmMappingRow(rowId, { approvedPrice: Number(newPrice) || 0 }, 'Updated Contract Approved Price');
-  };
-
   const handleSavePeriod = () => {
-    saveVendorPeriodSchedule();
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
   };
@@ -145,7 +152,7 @@ export default function RMPriceMatrixPage() {
               disabled={isLocked}
               value={currentVal}
               onChange={(e) => handleDropdownSelect(row.id, altSlot, e.target.value)}
-              className="w-full appearance-none bg-white border border-slate-300 rounded-lg pl-2.5 pr-7 py-1.5 text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100 disabled:text-slate-700 disabled:cursor-not-allowed shadow-sm truncate cursor-pointer"
+              className="w-full appearance-none bg-white border border-slate-300 rounded-lg pl-2.5 pr-7 py-1.5 text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100 disabled:text-slate-700 disabled:cursor-not-allowed shadow-sm truncate"
             >
               {options.map((opt, idx) => (
                 <option key={idx} value={opt}>{opt}</option>
@@ -192,10 +199,12 @@ export default function RMPriceMatrixPage() {
           </div>
         </div>
 
-        {/* Dynamic Global Lock / Unlock Button */}
         <button 
-          onClick={toggleGlobalLock}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm shadow-md transition-all cursor-pointer ${
+          onClick={() => {
+            globalStore.isGlobalLocked = !globalStore.isGlobalLocked;
+            setTick(t => t + 1);
+          }}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm shadow-md transition-all ${
             isLocked 
               ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/20' 
               : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
@@ -210,7 +219,7 @@ export default function RMPriceMatrixPage() {
       <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-2">
         <button
           onClick={() => setActiveTab('matrix')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
             activeTab === 'matrix' ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-white text-slate-600 hover:bg-slate-100'
           }`}
         >
@@ -218,7 +227,7 @@ export default function RMPriceMatrixPage() {
         </button>
         <button
           onClick={() => setActiveTab('purchases')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
             activeTab === 'purchases' ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-white text-slate-600 hover:bg-slate-100'
           }`}
         >
@@ -226,7 +235,7 @@ export default function RMPriceMatrixPage() {
         </button>
         <button
           onClick={() => setActiveTab('sales')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
             activeTab === 'sales' ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-white text-slate-600 hover:bg-slate-100'
           }`}
         >
@@ -234,7 +243,7 @@ export default function RMPriceMatrixPage() {
         </button>
         <button
           onClick={() => setActiveTab('logs')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
             activeTab === 'logs' ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-white text-slate-600 hover:bg-slate-100'
           }`}
         >
@@ -281,7 +290,7 @@ export default function RMPriceMatrixPage() {
 
         <button 
           onClick={handleSavePeriod}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm cursor-pointer"
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm"
         >
           <Save className="w-4 h-4" /> Save for Vendor + period
         </button>
@@ -293,15 +302,7 @@ export default function RMPriceMatrixPage() {
         </div>
       )}
 
-      {/* Lock Protected State Banner */}
-      {isLocked && (
-        <div className="p-3.5 bg-amber-50/80 border border-amber-200 text-amber-900 rounded-xl text-xs font-medium flex items-center gap-2">
-          <Lock className="w-4 h-4 text-amber-600 flex-shrink-0" />
-          <span><b>Protected State:</b> This page is locked. Click <b>"Page Locked (Click to Unlock & Edit)"</b> above to edit Approved Price, change Alternate Materials, or modify WA prices.</span>
-        </div>
-      )}
-
-      {/* TAB 1: RM PRICE MATRIX TABLE */}
+      {/* MATRIX TABLE */}
       {activeTab === 'matrix' && (
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
@@ -309,7 +310,7 @@ export default function RMPriceMatrixPage() {
               <thead>
                 <tr className="bg-[#0b1329] text-white uppercase text-[11px] tracking-wider font-semibold border-b border-slate-800">
                   <th className="py-3.5 px-4 font-bold min-w-[200px]">Approved RM/MB Code</th>
-                  <th className="py-3.5 px-3 font-bold text-center bg-[#152347] min-w-[130px]">Approved Price (₹/kg)</th>
+                  <th className="py-3.5 px-3 font-bold text-center bg-[#152347] min-w-[120px]">Approved Price (₹/kg)</th>
                   <th className="py-3.5 px-3 font-bold min-w-[230px]">Alternate RM-1</th>
                   <th className="py-3.5 px-3 font-bold text-center bg-[#152347] min-w-[90px]">Price (WA)</th>
                   <th className="py-3.5 px-3 font-bold min-w-[230px]">Alternate RM-2</th>
@@ -333,24 +334,11 @@ export default function RMPriceMatrixPage() {
                       </div>
                     </td>
 
-                    {/* Approved Price (Now Fully Editable when Unlocked) */}
+                    {/* Approved Price */}
                     <td className="py-3 px-3 text-center bg-slate-50/50">
-                      {isLocked ? (
-                        <div className="inline-flex items-center justify-center font-bold text-slate-900 bg-white border border-slate-200 px-3 py-1.5 rounded-lg text-xs shadow-sm">
-                          ₹ {Number(row.approvedPrice || 0).toFixed(2)}
-                        </div>
-                      ) : (
-                        <div className="inline-flex items-center gap-1 bg-amber-50/80 border border-amber-300 rounded-lg px-2 py-1 shadow-sm">
-                          <span className="text-xs font-bold text-amber-800">₹</span>
-                          <input 
-                            type="number"
-                            step="0.01"
-                            value={row.approvedPrice ?? 0}
-                            onChange={(e) => handleApprovedPriceChange(row.id, e.target.value)}
-                            className="w-20 text-center font-bold text-slate-900 bg-white border border-amber-400 rounded px-1.5 py-0.5 text-xs outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                      )}
+                      <div className="inline-flex items-center justify-center font-bold text-slate-900 bg-white border border-slate-200 px-3 py-1.5 rounded-lg text-xs shadow-sm">
+                        ₹ {Number(row.approvedPrice || 0).toFixed(2)}
+                      </div>
                     </td>
 
                     {/* Alt 1 */}
@@ -362,7 +350,7 @@ export default function RMPriceMatrixPage() {
                         <input 
                           type="number"
                           step="0.01"
-                          value={row.alt1Price ?? 0}
+                          value={row.alt1Price || 0}
                           onChange={(e) => handlePriceChange(row.id, 'alt1', e.target.value)}
                           className="w-20 text-center font-bold text-blue-700 bg-white border border-blue-300 rounded-lg px-2 py-1 text-xs shadow-sm outline-none focus:ring-2 focus:ring-blue-500"
                         />
@@ -378,7 +366,7 @@ export default function RMPriceMatrixPage() {
                         <input 
                           type="number"
                           step="0.01"
-                          value={row.alt2Price ?? 0}
+                          value={row.alt2Price || 0}
                           onChange={(e) => handlePriceChange(row.id, 'alt2', e.target.value)}
                           className="w-20 text-center font-bold text-slate-800 bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs shadow-sm outline-none focus:ring-2 focus:ring-blue-500"
                         />
@@ -394,7 +382,7 @@ export default function RMPriceMatrixPage() {
                         <input 
                           type="number"
                           step="0.01"
-                          value={row.alt3Price ?? 0}
+                          value={row.alt3Price || 0}
                           onChange={(e) => handlePriceChange(row.id, 'alt3', e.target.value)}
                           className="w-20 text-center font-bold text-slate-800 bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs shadow-sm outline-none focus:ring-2 focus:ring-blue-500"
                         />
@@ -452,7 +440,7 @@ export default function RMPriceMatrixPage() {
               onChange={e => setNewPur({...newPur, invoiceNo: e.target.value})}
               className="border border-slate-300 rounded-lg px-3 py-1.5 text-xs outline-none w-28"
             />
-            <button type="submit" className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-700 flex items-center gap-1 cursor-pointer">
+            <button type="submit" className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-700 flex items-center gap-1">
               <Plus className="w-3.5 h-3.5" /> Add Inward
             </button>
           </form>
@@ -530,7 +518,7 @@ export default function RMPriceMatrixPage() {
               className="border border-slate-300 rounded-lg px-3 py-1.5 text-xs outline-none w-28"
               required
             />
-            <button type="submit" className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-700 flex items-center gap-1 cursor-pointer">
+            <button type="submit" className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-700 flex items-center gap-1">
               <Plus className="w-3.5 h-3.5" /> Record Dispatch
             </button>
           </form>
@@ -564,7 +552,7 @@ export default function RMPriceMatrixPage() {
         </div>
       )}
 
-      {/* TAB 4: AUDIT CHANGE LOGS */}
+      {/* TAB 4: CHANGE LOGS */}
       {activeTab === 'logs' && (
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
           <table className="w-full text-left border-collapse text-xs">
@@ -573,8 +561,8 @@ export default function RMPriceMatrixPage() {
                 <th className="py-2.5 px-4">Timestamp</th>
                 <th className="py-2.5 px-4">Part / Grade Code</th>
                 <th className="py-2.5 px-4">Vendor</th>
-                <th className="py-2.5 px-4">Modifications / Log Details</th>
-                <th className="py-2.5 px-4">Cost Impact / Value</th>
+                <th className="py-2.5 px-4">Modifications</th>
+                <th className="py-2.5 px-4">Impact</th>
                 <th className="py-2.5 px-4">Authorized By</th>
                 <th className="py-2.5 px-4">Reason</th>
               </tr>
@@ -586,14 +574,14 @@ export default function RMPriceMatrixPage() {
                 </tr>
               ) : (
                 globalStore.parameterChangeLogs.map((log, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-2.5 px-4 font-mono text-slate-500">{log.timestamp}</td>
-                    <td className="py-2.5 px-4 font-bold text-slate-800">{log.partCode}</td>
-                    <td className="py-2.5 px-4">{log.vendor}</td>
-                    <td className="py-2.5 px-4 text-slate-700 font-medium">{log.modifications}</td>
-                    <td className="py-2.5 px-4 font-bold text-blue-600">{log.costImpact}</td>
-                    <td className="py-2.5 px-4 font-semibold text-slate-600">{log.authorizedBy}</td>
-                    <td className="py-2.5 px-4 text-slate-500 italic">{log.reason}</td>
+                  <tr key={idx} className="hover:bg-slate-50">
+                    <td className="py-2 px-4 font-mono text-slate-500">{log.timestamp}</td>
+                    <td className="py-2 px-4 font-bold text-slate-800">{log.partCode}</td>
+                    <td className="py-2 px-4">{log.vendor}</td>
+                    <td className="py-2 px-4 text-slate-700">{log.modifications}</td>
+                    <td className="py-2 px-4 font-bold text-blue-600">{log.costImpact}</td>
+                    <td className="py-2 px-4 font-semibold text-slate-600">{log.authorizedBy}</td>
+                    <td className="py-2 px-4 text-slate-500 italic">{log.reason}</td>
                   </tr>
                 ))
               )}
@@ -604,3 +592,12 @@ export default function RMPriceMatrixPage() {
     </div>
   );
 }
+PAGE_EOF
+
+echo "==> Restarting Vite dev server cleanly..."
+fuser -k 5173/tcp 2>/dev/null || killall -9 node 2>/dev/null || true
+rm -rf node_modules/.vite 2>/dev/null || true
+nohup npm run dev -- --host 0.0.0.0 --port 5173 > /tmp/vite_server.log 2>&1 &
+sleep 2
+
+echo "==> Done! Refresh your browser now."
