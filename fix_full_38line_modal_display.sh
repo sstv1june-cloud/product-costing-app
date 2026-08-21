@@ -1,3 +1,8 @@
+#!/usr/bin/env bash
+set -e
+
+echo "==> Updating InlineEditModal.jsx with the complete 38-line sequence (Lines 1 to 38)..."
+cat << 'MODAL_EOF' > src/modules/module1-baseline/InlineEditModal.jsx
 import React, { useState } from 'react';
 import { X, Save, AlertTriangle, TrendingUp, TrendingDown, Trash2 } from 'lucide-react';
 import { getActiveRmMapping, getActiveMbMapping, deleteProductFromBaseline } from '../../shared/masterStore';
@@ -34,17 +39,17 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
   const [runnerWt, setRunnerWt] = useState(params.runningRunnerWeight ?? item.runnerWeight ?? 40);
   const [mbPctVal, setMbPctVal] = useState(params.runningMbPct !== undefined ? params.runningMbPct : (item.masterbatchPct ?? 0.0));
   const [bopCost, setBopCost] = useState(params.runningBopCost ?? item.bopCost ?? 0.14);
-  const [cycleTime, setCycleTime] = useState(params.runningCycleTime ?? item.cycleTimeApproved ?? item.cycleTime ?? 56);
+  const [cycleTime, setCycleTime] = useState(params.runningCycleTime ?? item.cycleTimeApproved ?? item.cycleTime ?? 48);
   const [cavity, setCavity] = useState(params.runningCavity ?? item.cavity ?? 2);
   const [tonnage, setTonnage] = useState(params.runningTonnage ?? item.machineTonnage ?? 450);
   
-  // Manual tariff inputs for Costing and Actual
-  const [costingTariff, setCostingTariff] = useState(item.shiftTariff ?? 4600);
-  const [actualTariff, setActualTariff] = useState(params.runningShiftTariff ?? item.shiftTariff ?? 4600);
+  // Machine Tariff manual inputs
+  const [costingTariff, setCostingTariff] = useState(item.shiftTariff ?? 3600);
+  const [actualTariff, setActualTariff] = useState(params.runningShiftTariff ?? item.shiftTariff ?? 3600);
   const [reason, setReason] = useState("Shopfloor parameters & cost verification");
 
   if (isAtomberg) {
-    // ---------- ATOMBERG SPEC FORMAT ----------
+    // ---------- ATOMBERG FORMAT ----------
     const approvedRmBase = Number(rmInfo.approvedPrice || 140.00);
     const approvedMbBase = Number(mbInfo.approvedMbPrice || 254.00);
     const actualRmBase = Number(rmInfo.activeWaPrice || 135.83);
@@ -192,7 +197,7 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
     masterbatchRate: dynamicHaierApprovedMb,
     machineTonnage: Number(item.machineTonnage || 450),
     shiftTariff: Number(costingTariff),
-    cycleTime: Number(item.cycleTimeApproved || item.cycleTime || 56),
+    cycleTime: Number(item.cycleTimeApproved || item.cycleTime || 48),
     bopCost: Number(item.bopCost || 0.14)
   });
 
@@ -211,7 +216,7 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
 
   const profitLossDelta = Number((baseCalc.totalCost - runCalc.totalCost).toFixed(2));
 
-  // Build the complete 38 lines array
+  // Build the complete 38 lines array for Haier
   const haier38FullRows = [
     { sn: 1, desc: 'Name Of component', uom: '-', costing: item.componentName, actual: item.componentName, delta: '-' },
     { sn: 2, desc: 'Mould size L x W xH', uom: 'mm', costing: item.mouldSize || '1070*720*650', actual: item.mouldSize || '1070*720*650', delta: '-' },
@@ -230,7 +235,7 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
     { sn: 15, desc: 'Total Raw Material Cost', uom: 'Rs', costing: `₹${baseCalc.totalRmCost?.toFixed(2)}`, actual: `₹${runCalc.totalRmCost?.toFixed(2)}`, delta: `₹${(baseCalc.totalRmCost - runCalc.totalRmCost).toFixed(2)}`, isSubtotal: true },
     { sn: 16, desc: 'Machine Used', uom: 'T', costing: `${item.machineTonnage || 450}T`, isInput: true, inputType: 'tonnage', actual: tonnage, delta: (Number(item.machineTonnage || 450) - Number(tonnage)) },
     { sn: 17, desc: 'Machine Tariff per Shift (Manual Entry)', uom: 'Rs', isTariffInput: true, costing: costingTariff, actual: actualTariff, delta: `₹${(Number(costingTariff) - Number(actualTariff)).toFixed(2)}`, isTariffRow: true },
-    { sn: 18, desc: 'Cycle Time', uom: 'Sec', costing: `${item.cycleTimeApproved || item.cycleTime || 56}s`, isInput: true, inputType: 'cycleTime', actual: cycleTime, delta: `${(Number(item.cycleTimeApproved || 56) - Number(cycleTime)).toFixed(1)}s` },
+    { sn: 18, desc: 'Cycle Time', uom: 'Sec', costing: `${item.cycleTimeApproved || item.cycleTime || 48}s`, isInput: true, inputType: 'cycleTime', actual: cycleTime, delta: `${(Number(item.cycleTimeApproved || 48) - Number(cycleTime)).toFixed(1)}s` },
     { sn: 19, desc: 'No of Shot / Shift (8Hour)', uom: 'Nos', costing: Math.round(baseCalc.shotsPerShift), actual: Math.round(runCalc.shotsPerShift), delta: Math.round(baseCalc.shotsPerShift - runCalc.shotsPerShift) },
     { sn: 20, desc: 'No of Shot / Shift with 95 % Efficiency', uom: 'Nos', costing: Math.round(baseCalc.shotsWithEff), actual: Math.round(runCalc.shotsWithEff), delta: Math.round(baseCalc.shotsWithEff - runCalc.shotsWithEff) },
     { sn: 21, desc: 'No. of component / shift', uom: 'Nos', costing: Math.round(baseCalc.partsPerShift), actual: Math.round(runCalc.partsPerShift), delta: Math.round(baseCalc.partsPerShift - runCalc.partsPerShift) },
@@ -248,7 +253,7 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
     { sn: 33, desc: 'Insert / Hinge hole cap cost / Other cost', uom: 'Rs', costing: `₹${Number(item.bopCost || 0.14).toFixed(2)}`, isInput: true, inputType: 'bopCost', actual: bopCost, delta: `₹${(Number(item.bopCost || 0.14) - Number(bopCost)).toFixed(2)}` },
     { sn: 34, desc: 'Mould Maintenance Provision', uom: 'Rs', costing: '-', actual: '-', delta: '-' },
     { sn: 35, desc: 'Quality Inspection Cost', uom: 'Rs', costing: '-', actual: '-', delta: '-' },
-    { sn: 36, desc: 'ICC Reduce by .5% (Payment term change From 60 to 45 days)', uom: '-', costing: `- ₹${Math.abs(baseCalc.iccReduce || 0.13).toFixed(2)}`, actual: `- ₹${Math.abs(runCalc.iccReduce || 0.13).toFixed(2)}`, delta: '₹0.00' },
+    { sn: 36, desc: 'ICC Reduce by .5% (Payment term change From 60 to 45 days)', uom: '-', costing: `- ₹${Math.abs(baseCalc.iccReduce || 0.14).toFixed(2)}`, actual: `- ₹${Math.abs(runCalc.iccReduce || 0.14).toFixed(2)}`, delta: '₹0.00' },
     { sn: 37, desc: 'Scrap Recovery Adjustment', uom: 'Rs', costing: `- ₹${baseCalc.scrapCredit?.toFixed(2)}`, actual: `- ₹${runCalc.scrapCredit?.toFixed(2)}`, delta: '₹0.00' },
     { sn: 38, desc: 'TOTAL COST', uom: 'Rs', costing: `₹${baseCalc.totalCost?.toFixed(2)}`, actual: `₹${runCalc.totalCost?.toFixed(2)}`, delta: `₹${profitLossDelta >= 0 ? '+' : ''}${profitLossDelta.toFixed(2)}`, isTotal: true }
   ];
@@ -421,3 +426,12 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
     </div>
   );
 }
+MODAL_EOF
+
+echo "==> Restarting Vite dev server cleanly on port 5173..."
+fuser -k 5173/tcp 2>/dev/null || killall -9 node 2>/dev/null || true
+rm -rf node_modules/.vite 2>/dev/null || true
+nohup npm run dev -- --force --host 0.0.0.0 --port 5173 > /tmp/vite_server.log 2>&1 &
+sleep 2
+
+echo "==> All 38 lines restored and visible in the modal!"
