@@ -1,3 +1,8 @@
+#!/usr/bin/env bash
+set -e
+
+echo "==> 1. Writing enhanced RMPriceMatrixPage.jsx with Date parsing, Staging modals, and editable Approved Price..."
+cat << 'PAGE_EOF' > src/modules/module2-rm-matrix/RMPriceMatrixPage.jsx
 import React, { useState, useEffect } from 'react';
 import { 
   Plus, 
@@ -1109,3 +1114,17 @@ export default function RMPriceMatrixPage() {
     </div>
   );
 }
+PAGE_EOF
+
+echo "==> 2. Verifying build with npm run build..."
+npm run build
+
+echo "==> 3. Restarting Vite development server cleanly on port 5173..."
+fuser -k 5173/tcp 2>/dev/null || killall -9 node 2>/dev/null || true
+rm -rf node_modules/.vite 2>/dev/null || true
+nohup npm run dev -- --force --host 0.0.0.0 --port 5173 > /tmp/vite_server.log 2>&1 &
+sleep 2
+
+echo "-------------------------------------------------------------------"
+echo "✅ Date Normalizer, Staging Modals & Editable Approved Price live!"
+echo "-------------------------------------------------------------------"

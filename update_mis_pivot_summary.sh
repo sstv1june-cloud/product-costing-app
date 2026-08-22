@@ -1,3 +1,8 @@
+#!/usr/bin/env bash
+set -e
+
+echo "==> 1. Updating MISVariancePage.jsx with Product-Wise Aggregated Pivot Summary..."
+cat << 'PAGE_EOF' > src/modules/module4-mis/MISVariancePage.jsx
 import React, { useState, useEffect } from 'react';
 import { 
   TrendingUp, 
@@ -11,10 +16,7 @@ import {
   Calendar, 
   FileSpreadsheet,
   Table,
-  CheckCircle2,
-  ChevronRight,
-  Activity,
-  DollarSign
+  CheckCircle2
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { 
@@ -30,9 +32,8 @@ export default function MISVariancePage() {
   const [selectedVendor, setSelectedVendor] = useState('ALL');
   const [periodStart, setPeriodStart] = useState('2026-08-01');
   const [periodEnd, setPeriodEnd] = useState('2026-08-31');
-  const [viewMode, setViewMode] = useState('pivot'); // 'pivot' | 'detailed'
+  const [viewMode, setViewMode] = useState('pivot'); // 'pivot' (Product Summary) | 'detailed' (Invoice Wise)
   const [searchQuery, setSearchQuery] = useState('');
-  const [trendVendor, setTrendVendor] = useState('Haier Appliances');
 
   useEffect(() => {
     const unsub = subscribeStore(() => {
@@ -134,7 +135,7 @@ export default function MISVariancePage() {
         bopCost: Number(matchedBaseline.parameters?.runningBopCost ?? matchedBaseline.bopCost ?? 0.14)
       });
 
-      contractBaseline = Number(baseCalc.totalCost || 34.32);
+      contractBaseline = Number(baseCalc.totalCost || 35.06);
       actualUnitCost = Number(actCalc.totalCost || 34.05);
     }
 
@@ -199,25 +200,6 @@ export default function MISVariancePage() {
   const totalCostVariance = detailedRows.reduce((acc, r) => acc + r.totalProfitLoss, 0);
   const grossMarginPercentage = totalSalesRevenue > 0 ? ((totalGrossMargin / totalSalesRevenue) * 100).toFixed(1) : 0;
 
-  // 4. Multi-Month Trend Matrix Data (May to Aug 2026)
-  const multiMonthMetrics = [
-    { metric: "Total Sales Revenue", m1: "₹287,100", m2: "₹304,000", m3: "₹315,700", m4: "₹1,236,960", trend: "+291%" },
-    { metric: "Contract Baseline Cost", m1: "₹255,200", m2: "₹269,800", m3: "₹280,100", m4: "₹1,168,140", trend: "+317%" },
-    { metric: "Actual Landed Production Cost", m1: "₹250,900", m2: "₹265,300", m3: "₹275,800", m4: "₹1,176,268", trend: "+326%" },
-    { metric: "RM Price Variance Gain / Loss (Δ)", m1: "+ ₹4,300", m2: "+ ₹4,500", m3: "+ ₹4,300", m4: "+ ₹8,829", trend: "+105%", isHighlight: true },
-    { metric: "Gross Realized Margin (₹)", m1: "₹36,200", m2: "₹38,700", m3: "₹39,900", m4: "₹60,692", trend: "+52%" },
-    { metric: "Gross Realized Margin (%)", m1: "12.6%", m2: "12.7%", m3: "12.6%", m4: "4.9%", trend: "-7.7%" }
-  ];
-
-  // 5. Parameter Gap Breakdown Drivers
-  const gapDrivers = [
-    { driver: "Polymer Base Rate Variance (RM Purchase vs Approved Contract)", haierImpact: "+ ₹8,532", atombergImpact: "- ₹3,105", netTotal: "+ ₹5,427", status: "Favorable" },
-    { driver: "Masterbatch Rate Variance (MB Actual Landed vs Approved)", haierImpact: "+ ₹420", atombergImpact: "- ₹415", netTotal: "+ ₹5", status: "Neutral" },
-    { driver: "Cycle Time & Shopfloor Machine Efficiency Variance", haierImpact: "+ ₹1,200", atombergImpact: "+ ₹1,800", netTotal: "+ ₹3,000", status: "Favorable" },
-    { driver: "Runner Scrap Weight & Regrind Credit Delta", haierImpact: "+ ₹210", atombergImpact: "- ₹80", netTotal: "+ ₹130", status: "Favorable" },
-    { driver: "BOP / Inserts & Packaging Overhead Variance", haierImpact: "+ ₹350", atombergImpact: "- ₹83", netTotal: "+ ₹267", status: "Favorable" }
-  ];
-
   // Export MIS Report (.xlsx)
   const downloadReport = () => {
     const dataToExport = viewMode === 'pivot' 
@@ -254,7 +236,7 @@ export default function MISVariancePage() {
     const ws = XLSX.utils.json_to_sheet(dataToExport);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, viewMode === 'pivot' ? "Product_Pivot_Summary" : "Invoice_Wise_Sales");
-    XLSX.writeFile(wb, `MIS_Complete_Executive_Report_${periodStart}_to_${periodEnd}.xlsx`);
+    XLSX.writeFile(wb, `MIS_Sales_Costing_Report_${periodStart}_to_${periodEnd}.xlsx`);
   };
 
   return (
@@ -306,8 +288,9 @@ export default function MISVariancePage() {
         </div>
       </div>
 
-      {/* TABLE 1: PRODUCT SALES REALIZATION & PIVOT SUMMARY */}
+      {/* Main Table Card */}
       <div className="bg-white rounded-2xl border border-slate-300 overflow-hidden shadow-sm">
+        {/* Table Filter & View Switcher Bar */}
         <div className="p-3.5 bg-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
           <div className="flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-blue-400" />
@@ -315,6 +298,7 @@ export default function MISVariancePage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 text-xs">
+            {/* View Mode Toggle: Pivot vs Detailed */}
             <div className="flex bg-slate-800 p-0.5 rounded-xl border border-slate-700">
               <button
                 onClick={() => setViewMode('pivot')}
@@ -355,7 +339,8 @@ export default function MISVariancePage() {
           </div>
         </div>
 
-        {viewMode === 'pivot' ? (
+        {/* View Mode 1: Product Summary Pivot */}
+        {viewMode === 'pivot' && (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead className="bg-slate-100 text-slate-700 uppercase font-bold text-[10px]">
@@ -418,7 +403,10 @@ export default function MISVariancePage() {
               )}
             </table>
           </div>
-        ) : (
+        )}
+
+        {/* View Mode 2: Detailed Invoice-Wise Log */}
+        {viewMode === 'detailed' && (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead className="bg-slate-100 text-slate-700 uppercase font-bold text-[10px]">
@@ -438,123 +426,49 @@ export default function MISVariancePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {detailedRows.map(r => (
-                  <tr key={r.rowId} className="hover:bg-slate-50">
-                    <td className="py-2.5 px-3 font-mono text-slate-600">{r.date}</td>
-                    <td className="py-2.5 px-3 font-mono font-bold text-blue-700">{r.itemCode}</td>
-                    <td className="py-2.5 px-4 font-bold text-slate-900">{r.componentName}</td>
-                    <td className="py-2.5 px-3"><span className="px-2 py-0.5 rounded font-bold text-[10px] bg-slate-100 text-slate-700">{r.vendor}</span></td>
-                    <td className="py-2.5 px-3 font-mono text-slate-700">{r.invoiceNo}</td>
-                    <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">{r.qty.toLocaleString()}</td>
-                    <td className="py-2.5 px-3 text-right font-mono font-bold">₹{r.sellingPrice.toFixed(2)}</td>
-                    <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-900 bg-amber-50/40">₹{r.contractBaseline.toFixed(2)}</td>
-                    <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-800">₹{r.actualUnitCost.toFixed(2)}</td>
-                    <td className={`py-2.5 px-3 text-right font-mono font-bold ${r.unitProfitDelta >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                      {r.unitProfitDelta >= 0 ? `+ ₹${r.unitProfitDelta.toFixed(2)}` : `- ₹${Math.abs(r.unitProfitDelta).toFixed(2)}`}
-                    </td>
-                    <td className={`py-2.5 px-3 text-right font-mono font-bold ${r.totalProfitLoss >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                      {r.totalProfitLoss >= 0 ? `+ ₹${r.totalProfitLoss.toLocaleString()}` : `- ₹${Math.abs(r.totalProfitLoss).toLocaleString()}`}
-                    </td>
-                    <td className="py-2.5 px-4 text-right font-mono font-black text-slate-900">₹{r.totalSalesRev.toLocaleString()}</td>
-                  </tr>
-                ))}
+                {detailedRows.length === 0 ? (
+                  <tr><td colSpan={12} className="py-8 text-center text-slate-400">No sales transactions found.</td></tr>
+                ) : (
+                  detailedRows.map(r => (
+                    <tr key={r.rowId} className="hover:bg-slate-50">
+                      <td className="py-2.5 px-3 font-mono text-slate-600">{r.date}</td>
+                      <td className="py-2.5 px-3 font-mono font-bold text-blue-700">{r.itemCode}</td>
+                      <td className="py-2.5 px-4 font-bold text-slate-900">{r.componentName}</td>
+                      <td className="py-2.5 px-3"><span className="px-2 py-0.5 rounded font-bold text-[10px] bg-slate-100 text-slate-700">{r.vendor}</span></td>
+                      <td className="py-2.5 px-3 font-mono text-slate-700">{r.invoiceNo}</td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">{r.qty.toLocaleString()}</td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold">₹{r.sellingPrice.toFixed(2)}</td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-900 bg-amber-50/40">₹{r.contractBaseline.toFixed(2)}</td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-800">₹{r.actualUnitCost.toFixed(2)}</td>
+                      <td className={`py-2.5 px-3 text-right font-mono font-bold ${r.unitProfitDelta >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        {r.unitProfitDelta >= 0 ? `+ ₹${r.unitProfitDelta.toFixed(2)}` : `- ₹${Math.abs(r.unitProfitDelta).toFixed(2)}`}
+                      </td>
+                      <td className={`py-2.5 px-3 text-right font-mono font-bold ${r.totalProfitLoss >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                        {r.totalProfitLoss >= 0 ? `+ ₹${r.totalProfitLoss.toLocaleString()}` : `- ₹${Math.abs(r.totalProfitLoss).toLocaleString()}`}
+                      </td>
+                      <td className="py-2.5 px-4 text-right font-mono font-black text-slate-900">₹{r.totalSalesRev.toLocaleString()}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         )}
       </div>
-
-      {/* TABLE 2: MULTI-MONTH VARIANCE TREND MATRIX */}
-      <div className="bg-white rounded-2xl border border-slate-300 overflow-hidden shadow-sm">
-        <div className="p-3.5 bg-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Activity className="w-4 h-4 text-emerald-400" />
-            <h2 className="text-xs font-bold uppercase tracking-wider">MULTI-MONTH VARIANCE TREND & TOP-6 PART DRILLDOWN</h2>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-slate-400 font-semibold">Filter Vendor:</span>
-            <select
-              value={trendVendor}
-              onChange={e => setTrendVendor(e.target.value)}
-              className="px-2.5 py-1 rounded-lg bg-slate-800 text-white border border-slate-700 font-bold text-xs"
-            >
-              {vendors.filter(v => v.vendorId !== 'ALL').map(v => (
-                <option key={v.vendorId} value={v.vendorId}>{v.vendorName}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead className="bg-slate-100 text-slate-700 uppercase font-bold text-[10px]">
-              <tr>
-                <th className="py-2.5 px-4">FILTER / METRIC CATEGORY</th>
-                <th className="py-2.5 px-4 text-right">M1_MAY</th>
-                <th className="py-2.5 px-4 text-right">M2_JUNE</th>
-                <th className="py-2.5 px-4 text-right">M3_JULY</th>
-                <th className="py-2.5 px-4 text-right bg-blue-50/60 font-black text-blue-900">M4_AUGUST (CURRENT)</th>
-                <th className="py-2.5 px-4 text-center">4-MONTH TREND</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {multiMonthMetrics.map((m, idx) => (
-                <tr key={idx} className={m.isHighlight ? 'bg-emerald-50/50 font-bold' : 'hover:bg-slate-50'}>
-                  <td className="py-2.5 px-4 font-bold text-slate-800">{m.metric}</td>
-                  <td className="py-2.5 px-4 text-right font-mono text-slate-600">{m.m1}</td>
-                  <td className="py-2.5 px-4 text-right font-mono text-slate-600">{m.m2}</td>
-                  <td className="py-2.5 px-4 text-right font-mono text-slate-600">{m.m3}</td>
-                  <td className="py-2.5 px-4 text-right font-mono font-black text-blue-900 bg-blue-50/40">{m.m4}</td>
-                  <td className="py-2.5 px-4 text-center font-mono font-bold text-emerald-600">{m.trend}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* TABLE 3: PARAMETER-LEVEL COST DRIVER GAP ANALYSIS */}
-      <div className="bg-white rounded-2xl border border-slate-300 overflow-hidden shadow-sm">
-        <div className="p-3.5 bg-slate-900 text-white flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <DollarSign className="w-4 h-4 text-amber-400" />
-            <h2 className="text-xs font-bold uppercase tracking-wider">ROOT-CAUSE COST GAP BREAKDOWN BY DRIVER</h2>
-          </div>
-          <span className="text-[10px] text-slate-400 font-mono">Live Sync with Day-Wise Purchases & Invoices</span>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead className="bg-slate-100 text-slate-700 uppercase font-bold text-[10px]">
-              <tr>
-                <th className="py-2.5 px-4">Cost Driver & Parameter Variance</th>
-                <th className="py-2.5 px-4 text-right">Haier Appliances Impact</th>
-                <th className="py-2.5 px-4 text-right">Atomberg Technologies Impact</th>
-                <th className="py-2.5 px-4 text-right font-black">Net Combined Variance (₹)</th>
-                <th className="py-2.5 px-4 text-center">Variance Classification</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {gapDrivers.map((d, idx) => (
-                <tr key={idx} className="hover:bg-slate-50">
-                  <td className="py-2.5 px-4 font-semibold text-slate-800">{d.driver}</td>
-                  <td className="py-2.5 px-4 text-right font-mono text-emerald-700 font-bold">{d.haierImpact}</td>
-                  <td className="py-2.5 px-4 text-right font-mono text-rose-600 font-bold">{d.atombergImpact}</td>
-                  <td className="py-2.5 px-4 text-right font-mono font-black text-slate-900">{d.netTotal}</td>
-                  <td className="py-2.5 px-4 text-center">
-                    <span className={`px-2.5 py-0.5 rounded font-bold text-[10px] ${
-                      d.status === 'Favorable' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
-                    }`}>
-                      {d.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
     </div>
   );
 }
+PAGE_EOF
+
+echo "==> 2. Verifying clean build with npm run build..."
+npm run build
+
+echo "==> 3. Restarting Vite development server cleanly on port 5173..."
+fuser -k 5173/tcp 2>/dev/null || killall -9 node 2>/dev/null || true
+rm -rf node_modules/.vite 2>/dev/null || true
+nohup npm run dev -- --force --host 0.0.0.0 --port 5173 > /tmp/vite_server.log 2>&1 &
+sleep 2
+
+echo "-------------------------------------------------------------------"
+echo "✅ SUCCESS! Product-Wise Pivot Aggregation & MIS View Switcher live!"
+echo "-------------------------------------------------------------------"

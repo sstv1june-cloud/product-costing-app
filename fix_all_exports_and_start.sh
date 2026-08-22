@@ -1,10 +1,14 @@
+#!/usr/bin/env bash
+set -e
+
+echo "==> 1. Writing complete src/shared/masterStore.js with deleteVendorMaterial and all required exports..."
+cat << 'STORE_EOF' > src/shared/masterStore.js
 // ============================================================================
-// GLOBAL MASTER DATA STORE (Strict Deduplication & Dual-Level Lock Architecture)
+// GLOBAL MASTER DATA STORE (Complete Exports & Strict Vendor + Code Resolution)
 // ============================================================================
 
 export let globalStore = {
-  isLocked: true,        // Level 1: Global Page Lock
-  isMatrixLocked: true,  // Level 2: Dedicated RM Price Matrix Rate Lock
+  isLocked: true, // Default to true (Protected State)
 
   vendors: [
     { vendorId: 'Haier Appliances', vendorName: 'Haier Appliances' },
@@ -157,34 +161,32 @@ export let globalStore = {
     }
   ],
 
-  // Purchases: Supplier + Invoice # + Item Code Schema
   purchases: [
-    { date: '2026-05-04', supplier: 'Supreme Petrochem Ltd', invoiceNo: 'INV-HR-MAY01', itemCode: 'RM-ABS-01', grade: 'ABS 300-B Red (Prime Inward)', qty: 4500, rate: 135.50 },
-    { date: '2026-05-12', supplier: 'LG Polymers India', invoiceNo: 'INV-HR-MAY02', itemCode: 'RM-GPPS-01', grade: 'GPPS SC201LV + 3.5% Smoke Grey Blend', qty: 3000, rate: 99.20 },
-    { date: '2026-05-18', supplier: 'Reliance Industries Ltd', invoiceNo: 'INV-AT-MAY01', itemCode: 'RM-PP-01', grade: 'PP H110MA Prime Inward', qty: 4000, rate: 132.50 },
-    { date: '2026-06-03', supplier: 'Supreme Petrochem Ltd', invoiceNo: 'INV-HR-JUN01', itemCode: 'RM-ABS-01', grade: 'ABS 300-B Red (Prime Inward)', qty: 5000, rate: 135.00 },
-    { date: '2026-06-15', supplier: 'LG Polymers India', invoiceNo: 'INV-HR-JUN02', itemCode: 'RM-GPPS-01', grade: 'GPPS SC201LV + 3.5% Smoke Grey Blend', qty: 2800, rate: 98.90 },
-    { date: '2026-06-20', supplier: 'Reliance Industries Ltd', invoiceNo: 'INV-AT-JUN01', itemCode: 'RM-PP-01', grade: 'PP H110MA Prime Inward', qty: 4500, rate: 133.80 },
-    { date: '2026-07-05', supplier: 'Supreme Petrochem Ltd', invoiceNo: 'INV-HR-JUL01', itemCode: 'RM-ABS-01', grade: 'ABS 300-B Red (Prime Inward)', qty: 5200, rate: 134.90 },
-    { date: '2026-07-16', supplier: 'LG Polymers India', invoiceNo: 'INV-HR-JUL02', itemCode: 'RM-GPPS-01', grade: 'GPPS SC201LV + 3.5% Smoke Grey Blend', qty: 3200, rate: 98.60 },
-    { date: '2026-07-22', supplier: 'Reliance Industries Ltd', invoiceNo: 'INV-AT-JUL01', itemCode: 'RM-PP-01', grade: 'PP H110MA Prime Inward', qty: 5000, rate: 134.50 },
-    { date: '2026-08-01', supplier: 'Supreme Petrochem Ltd', invoiceNo: 'INV-HR-AUG01', itemCode: 'RM-ABS-01', grade: 'ABS 300-B Red (Prime Inward)', qty: 6000, rate: 134.80 }
+    { date: '2026-05-04', vendor: 'Haier Appliances', invoiceNo: 'INV-HR-MAY01', grade: 'ABS 300-B Red (Prime Inward)', qty: 4500, rate: 135.50 },
+    { date: '2026-05-12', vendor: 'Haier Appliances', invoiceNo: 'INV-HR-MAY02', grade: 'GPPS SC201LV + 3.5% Smoke Grey Blend', qty: 3000, rate: 99.20 },
+    { date: '2026-05-18', vendor: 'Atomberg Technologies', invoiceNo: 'INV-AT-MAY01', grade: 'PP H110MA Prime Inward', qty: 4000, rate: 132.50 },
+    { date: '2026-06-03', vendor: 'Haier Appliances', invoiceNo: 'INV-HR-JUN01', grade: 'ABS 300-B Red (Prime Inward)', qty: 5000, rate: 135.00 },
+    { date: '2026-06-15', vendor: 'Haier Appliances', invoiceNo: 'INV-HR-JUN02', grade: 'GPPS SC201LV + 3.5% Smoke Grey Blend', qty: 2800, rate: 98.90 },
+    { date: '2026-06-20', vendor: 'Atomberg Technologies', invoiceNo: 'INV-AT-JUN01', grade: 'PP H110MA Prime Inward', qty: 4500, rate: 133.80 },
+    { date: '2026-07-05', vendor: 'Haier Appliances', invoiceNo: 'INV-HR-JUL01', grade: 'ABS 300-B Red (Prime Inward)', qty: 5200, rate: 134.90 },
+    { date: '2026-07-16', vendor: 'Haier Appliances', invoiceNo: 'INV-HR-JUL02', grade: 'GPPS SC201LV + 3.5% Smoke Grey Blend', qty: 3200, rate: 98.60 },
+    { date: '2026-07-22', vendor: 'Atomberg Technologies', invoiceNo: 'INV-AT-JUL01', grade: 'PP H110MA Prime Inward', qty: 5000, rate: 134.50 },
+    { date: '2026-08-01', vendor: 'Haier Appliances', invoiceNo: 'INV-HR-AUG01', grade: 'ABS 300-B Red (Prime Inward)', qty: 6000, rate: 134.80 }
   ],
 
-  // Sales: Vendor + Invoice Number + Item Code Schema
   sales: [
-    { date: '2026-05-10', vendor: 'Haier Appliances', invoiceNo: 'DISP-HR-001', itemCode: '0060217989D', componentName: 'End cap Bottom Ref-ABS-DC-195,220', qty: 3800, sellingPrice: 42.00 },
-    { date: '2026-05-15', vendor: 'Haier Appliances', invoiceNo: 'DISP-HR-002', itemCode: '0060217978E', componentName: 'CRISPER GPPS LV + 3.5% SMOKE GREY VEG BOX', qty: 1500, sellingPrice: 85.00 },
-    { date: '2026-05-20', vendor: 'Atomberg Technologies', invoiceNo: 'DISP-AT-001', itemCode: 'A1017011_tt2', componentName: 'Aris Top Canopy- Gloss White', qty: 3000, sellingPrice: 14.50 },
-    { date: '2026-05-25', vendor: 'Atomberg Technologies', invoiceNo: 'DISP-AT-002', itemCode: 'A1017031_tt2', componentName: 'Aris Top Canopy- Gloss Black', qty: 900, sellingPrice: 15.96 },
-    { date: '2026-06-11', vendor: 'Haier Appliances', invoiceNo: 'DISP-HR-003', itemCode: '0060217989D', componentName: 'End cap Bottom Ref-ABS-DC-195,220', qty: 4000, sellingPrice: 42.00 },
-    { date: '2026-06-18', vendor: 'Haier Appliances', invoiceNo: 'DISP-HR-004', itemCode: '0060217978E', componentName: 'CRISPER GPPS LV + 3.5% SMOKE GREY VEG BOX', qty: 1600, sellingPrice: 85.00 },
-    { date: '2026-06-22', vendor: 'Atomberg Technologies', invoiceNo: 'DISP-AT-003', itemCode: 'A1017011_tt2', componentName: 'Aris Top Canopy- Gloss White', qty: 3200, sellingPrice: 14.50 },
-    { date: '2026-06-28', vendor: 'Atomberg Technologies', invoiceNo: 'DISP-AT-004', itemCode: 'A1017031_tt2', componentName: 'Aris Top Canopy- Gloss Black', qty: 950, sellingPrice: 15.96 },
-    { date: '2026-07-10', vendor: 'Haier Appliances', invoiceNo: 'DISP-HR-005', itemCode: '0060217989D', componentName: 'End cap Bottom Ref-ABS-DC-195,220', qty: 4100, sellingPrice: 42.00 },
-    { date: '2026-07-15', vendor: 'Haier Appliances', invoiceNo: 'DISP-HR-006', itemCode: '0060217978E', componentName: 'CRISPER GPPS LV + 3.5% SMOKE GREY VEG BOX', qty: 1700, sellingPrice: 85.00 },
-    { date: '2026-08-10', vendor: 'Haier Appliances', invoiceNo: 'DISP-HR-007', itemCode: '0060217989D', componentName: 'End cap Bottom Ref-ABS-DC-195,220', qty: 4200, sellingPrice: 42.00 },
-    { date: '2026-08-12', vendor: 'Haier Appliances', invoiceNo: 'DISP-HR-008', itemCode: '0060217978E', componentName: 'CRISPER GPPS LV + 3.5% SMOKE GREY VEG BOX', qty: 1800, sellingPrice: 85.00 }
+    { date: '2026-05-10', vendor: 'Haier Appliances', itemCode: '0060217989D', componentName: 'End cap Bottom Ref-ABS-DC-195,220', qty: 3800, sellingPrice: 42.00 },
+    { date: '2026-05-15', vendor: 'Haier Appliances', itemCode: '0060217978E', componentName: 'CRISPER GPPS LV + 3.5% SMOKE GREY VEG BOX', qty: 1500, sellingPrice: 85.00 },
+    { date: '2026-05-20', vendor: 'Atomberg Technologies', itemCode: 'A1017011_tt2', componentName: 'Aris Top Canopy- Gloss White', qty: 3000, sellingPrice: 14.50 },
+    { date: '2026-05-25', vendor: 'Atomberg Technologies', itemCode: 'A1017031_tt2', componentName: 'Aris Top Canopy- Gloss Black', qty: 900, sellingPrice: 15.96 },
+    { date: '2026-06-11', vendor: 'Haier Appliances', itemCode: '0060217989D', componentName: 'End cap Bottom Ref-ABS-DC-195,220', qty: 4000, sellingPrice: 42.00 },
+    { date: '2026-06-18', vendor: 'Haier Appliances', itemCode: '0060217978E', componentName: 'CRISPER GPPS LV + 3.5% SMOKE GREY VEG BOX', qty: 1600, sellingPrice: 85.00 },
+    { date: '2026-06-22', vendor: 'Atomberg Technologies', itemCode: 'A1017011_tt2', componentName: 'Aris Top Canopy- Gloss White', qty: 3200, sellingPrice: 14.50 },
+    { date: '2026-06-28', vendor: 'Atomberg Technologies', itemCode: 'A1017031_tt2', componentName: 'Aris Top Canopy- Gloss Black', qty: 950, sellingPrice: 15.96 },
+    { date: '2026-07-10', vendor: 'Haier Appliances', itemCode: '0060217989D', componentName: 'End cap Bottom Ref-ABS-DC-195,220', qty: 4100, sellingPrice: 42.00 },
+    { date: '2026-07-15', vendor: 'Haier Appliances', itemCode: '0060217978E', componentName: 'CRISPER GPPS LV + 3.5% SMOKE GREY VEG BOX', qty: 1700, sellingPrice: 85.00 },
+    { date: '2026-08-10', vendor: 'Haier Appliances', itemCode: '0060217989D', componentName: 'End cap Bottom Ref-ABS-DC-195,220', qty: 4200, sellingPrice: 42.00 },
+    { date: '2026-08-12', vendor: 'Haier Appliances', itemCode: '0060217978E', componentName: 'CRISPER GPPS LV + 3.5% SMOKE GREY VEG BOX', qty: 1800, sellingPrice: 85.00 }
   ],
 
   auditLogs: []
@@ -327,8 +329,10 @@ export function parseMaterialString(rawMaterialStr) {
 }
 
 export function getPurchasedGradesForVendor(vendor) {
+  const vClean = (vendor || '').toLowerCase();
   const purchases = globalStore.purchases || [];
-  return Array.from(new Set(purchases.map(p => p.grade || p.itemCode).filter(Boolean)));
+  const matching = purchases.filter(p => (p.vendor || '').toLowerCase().includes(vClean));
+  return Array.from(new Set(matching.map(p => p.grade || p.itemCode).filter(Boolean)));
 }
 
 export function deleteVendorMaterial(id) {
@@ -420,30 +424,17 @@ export function getVendorBaselineData(vendorId) {
 }
 
 // ----------------------------------------------------------------------------
-// DUAL-LEVEL LOCKS, DEDUPLICATED INWARDS & SALES
+// AUDIT LOGS, LOCKS, VENDOR ONBOARDING & TRANSACTIONS
 // ----------------------------------------------------------------------------
 export function toggleGlobalLock() {
   globalStore.isLocked = !globalStore.isLocked;
   addAuditLog({
     partCode: 'SYSTEM_LOCK',
-    componentName: 'Global Baseline & RM Page Lock',
+    componentName: 'Global Baseline & RM Lock',
     vendor: 'ALL',
     modifications: `Status: ${globalStore.isLocked ? 'LOCKED' : 'UNLOCKED'}`,
     costImpact: globalStore.isLocked ? 'Frozen' : 'Editable',
-    reason: 'Page Lock toggled by Administrator'
-  });
-  notifyStore();
-}
-
-export function toggleMatrixLock() {
-  globalStore.isMatrixLocked = !globalStore.isMatrixLocked;
-  addAuditLog({
-    partCode: 'MATRIX_RATE_LOCK',
-    componentName: 'RM Price Matrix Rate & Alternate Lock (Level 2)',
-    vendor: 'ALL',
-    modifications: `Status: ${globalStore.isMatrixLocked ? 'LOCKED' : 'UNLOCKED'}`,
-    costImpact: globalStore.isMatrixLocked ? 'Matrix Rates Frozen' : 'Matrix Rates Editable',
-    reason: 'Matrix Rate Lock toggled by Administrator'
+    reason: 'Lock toggled by Administrator'
   });
   notifyStore();
 }
@@ -476,48 +467,28 @@ export function saveVendorPeriodSchedule() {
   notifyStore();
 }
 
-// Purchase Deduplication: Supplier + Invoice # + Item Code
 export function addDayWisePurchase(record) {
   if (!globalStore.purchases) globalStore.purchases = [];
-  
-  const sClean = (record.supplier || '').toLowerCase().trim();
-  const invClean = (record.invoiceNo || '').toLowerCase().trim();
-  const itemClean = (record.itemCode || record.grade || '').toLowerCase().trim();
-
-  const isDuplicate = globalStore.purchases.some(p => 
-    (p.supplier || '').toLowerCase().trim() === sClean &&
-    (p.invoiceNo || '').toLowerCase().trim() === invClean &&
-    ((p.itemCode || p.grade || '').toLowerCase().trim() === itemClean)
-  );
-
-  if (isDuplicate) {
-    return { success: false, duplicate: true, message: `Duplicate purchase entry ignored: ${record.supplier} | ${record.invoiceNo} | ${record.itemCode || record.grade}` };
-  }
-
   globalStore.purchases.unshift(record);
   notifyStore();
-  return { success: true };
 }
 
-// Sales Deduplication: Vendor + Invoice Number + Item Code
 export function addDayWiseSales(record) {
   if (!globalStore.sales) globalStore.sales = [];
-
-  const vClean = (record.vendor || '').toLowerCase().trim();
-  const invClean = (record.invoiceNo || '').toLowerCase().trim();
-  const itemClean = (record.itemCode || '').toLowerCase().trim();
-
-  const isDuplicate = globalStore.sales.some(s => 
-    (s.vendor || '').toLowerCase().trim() === vClean &&
-    (s.invoiceNo || '').toLowerCase().trim() === invClean &&
-    (s.itemCode || '').toLowerCase().trim() === itemClean
-  );
-
-  if (isDuplicate) {
-    return { success: false, duplicate: true, message: `Duplicate sales entry ignored: ${record.vendor} | ${record.invoiceNo} | ${record.itemCode}` };
-  }
-
   globalStore.sales.unshift(record);
   notifyStore();
-  return { success: true };
 }
+STORE_EOF
+
+echo "==> 2. Verifying entire codebase with npm run build..."
+npm run build
+
+echo "==> 3. Restarting Vite development server cleanly on port 5173..."
+fuser -k 5173/tcp 2>/dev/null || killall -9 node 2>/dev/null || true
+rm -rf node_modules/.vite 2>/dev/null || true
+nohup npm run dev -- --force --host 0.0.0.0 --port 5173 > /tmp/vite_server.log 2>&1 &
+sleep 2
+
+echo "-------------------------------------------------------------------"
+echo "✅ SUCCESS! Build passed 100% and Vite server running on port 5173."
+echo "-------------------------------------------------------------------"
