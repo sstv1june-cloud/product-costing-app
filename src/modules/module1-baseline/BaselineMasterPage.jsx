@@ -176,6 +176,7 @@ export default function BaselineMasterPage() {
           let bopCostVal = 0.00;
           let packingCostVal = 0.86;
           let transportCostVal = 0.62;
+          let haierOhPackageVal = 5.15;
 
           let parsedLine34 = null;
           let parsedLine35 = null;
@@ -213,6 +214,8 @@ export default function BaselineMasterPage() {
               if (isValidNum) shiftRateVal = numVal;
             } else if (desc === 'inserts/bop cost' || desc === 'insert / hinge hole cap cost / other cost' || (desc.includes('insert') && !desc.includes('rm + bop'))) {
               if (isValidNum) bopCostVal = numVal;
+            } else if (snVal === "24" || desc.includes('foam/polybag') || desc.includes('polyenda') || (desc.includes('oh+profit') && desc.includes('freight'))) {
+              if (isValidNum) haierOhPackageVal = numVal;
             } 
             
             // Capture specific lines 34, 35, 36
@@ -251,6 +254,7 @@ export default function BaselineMasterPage() {
             shiftTariff: shiftRateVal,
             shiftRate: shiftRateVal,
             bopCost: bopCostVal,
+            haierOverheadPackage: haierOhPackageVal,
             packingCost: packingCostVal,
             transportCost: transportCostVal,
             parameters: {
@@ -258,6 +262,7 @@ export default function BaselineMasterPage() {
               runningRunnerWeight: runnerWt,
               runningMbPct: mbPct,
               runningBopCost: bopCostVal,
+              runningHaierOverheadPackage: haierOhPackageVal,
               runningPackingCost: packingCostVal,
               runningTransportCost: transportCostVal,
               runningCycleTime: cycleTime,

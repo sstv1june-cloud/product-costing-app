@@ -1,5 +1,10 @@
+#!/usr/bin/env bash
+set -e
+
+echo "==> 1. Writing clean, deduplicated src/shared/masterStore.js..."
+cat << 'STORE_EOF' > src/shared/masterStore.js
 // ============================================================================
-// GLOBAL MASTER DATA STORE (Strict RM/MB Dynamic Resolution & Clean State)
+// GLOBAL MASTER DATA STORE (Strict RM/MB Dynamic Resolution & 0-Fallback)
 // ============================================================================
 
 export let globalStore = {
@@ -15,25 +20,25 @@ export let globalStore = {
   // RM & MB Master Matrix
   rmMappingsData: [
     // Atomberg RMs & MBs
-    { id: 'rm-at-1', vendor: 'Atomberg Technologies', type: 'RM', approvedCode: 'PP H110MA', approvedPrice: 131.00, activeAlt: 'alt1', alt1Code: 'PP H110MA Prime Inward', alt1Price: 135.83, alt2Code: '', alt2Price: 0.00, alt3Code: '', alt3Price: 0.00 },
-    { id: 'rm-at-2', vendor: 'Atomberg Technologies', type: 'RM', approvedCode: 'PP Mi3530', approvedPrice: 180.00, activeAlt: 'alt1', alt1Code: 'PP Mi3530 Prime Inward', alt1Price: 180.00, alt2Code: '', alt2Price: 0.00, alt3Code: '', alt3Price: 0.00 },
-    { id: 'mb-at-1', vendor: 'Atomberg Technologies', type: 'MB', approvedCode: 'Black MB', approvedPrice: 254.00, activeAlt: 'alt1', alt1Code: 'Black MB (Standard)', alt1Price: 258.54, alt2Code: '', alt2Price: 0.00, alt3Code: '', alt3Price: 0.00 },
-    { id: 'mb-at-2', vendor: 'Atomberg Technologies', type: 'MB', approvedCode: 'White MB', approvedPrice: 260.00, activeAlt: 'alt1', alt1Code: 'White MB (Standard)', alt1Price: 265.00, alt2Code: '', alt2Price: 0.00, alt3Code: '', alt3Price: 0.00 },
-    { id: 'mb-at-3', vendor: 'Atomberg Technologies', type: 'MB', approvedCode: 'Gray MB', approvedPrice: 150.00, activeAlt: 'alt1', alt1Code: 'Gray MB Prime Inward', alt1Price: 150.00, alt2Code: '', alt2Price: 0.00, alt3Code: '', alt3Price: 0.00 },
-    { id: 'mb-at-4', vendor: 'Atomberg Technologies', type: 'MB', approvedCode: 'GOLDEN MB', approvedPrice: 450.00, activeAlt: 'alt1', alt1Code: 'GOLDEN MB (Prime Contract)', alt1Price: 450.00, alt2Code: '', alt2Price: 0.00, alt3Code: '', alt3Price: 0.00 },
+    { id: 'rm-at-1', vendor: 'Atomberg Technologies', type: 'RM', approvedCode: 'PP H110MA', approvedPrice: 131.00, activeAlt: 'alt1', alt1Code: 'PP H110MA Prime Inward', alt1Price: 135.83, alt2Code: '', alt2Price: 0, alt3Code: '', alt3Price: 0 },
+    { id: 'rm-at-2', vendor: 'Atomberg Technologies', type: 'RM', approvedCode: 'PP Mi3530', approvedPrice: 180.00, activeAlt: 'alt1', alt1Code: 'PP Mi3530 Prime Inward', alt1Price: 180.00, alt2Code: '', alt2Price: 0, alt3Code: '', alt3Price: 0 },
+    { id: 'mb-at-1', vendor: 'Atomberg Technologies', type: 'MB', approvedCode: 'Black MB', approvedPrice: 254.00, activeAlt: 'alt1', alt1Code: 'Black MB (Standard)', alt1Price: 258.54, alt2Code: '', alt2Price: 0, alt3Code: '', alt3Price: 0 },
+    { id: 'mb-at-2', vendor: 'Atomberg Technologies', type: 'MB', approvedCode: 'White MB', approvedPrice: 260.00, activeAlt: 'alt1', alt1Code: 'White MB (Standard)', alt1Price: 265.00, alt2Code: '', alt2Price: 0, alt3Code: '', alt3Price: 0 },
+    { id: 'mb-at-3', vendor: 'Atomberg Technologies', type: 'MB', approvedCode: 'Gray MB', approvedPrice: 150.00, activeAlt: 'alt1', alt1Code: 'Gray MB Prime Inward', alt1Price: 150.00, alt2Code: '', alt2Price: 0, alt3Code: '', alt3Price: 0 },
+    { id: 'mb-at-4', vendor: 'Atomberg Technologies', type: 'MB', approvedCode: 'GOLDEN MB', approvedPrice: 450.00, activeAlt: 'alt1', alt1Code: 'GOLDEN MB Prime Inward', alt1Price: 450.00, alt2Code: '', alt2Price: 0, alt3Code: '', alt3Price: 0 },
 
     // Haier RMs & MBs
     { id: 'rm-ha-1', vendor: 'Haier Appliances', type: 'RM', approvedCode: 'ABS 300 Pre Colour', approvedPrice: 136.20, activeAlt: 'alt1', alt1Code: 'ABS 300-B Red (Prime Inward)', alt1Price: 134.80, alt2Code: 'ABS 300-B Alt Pre-mix (Supreme)', alt2Price: 135.20, alt3Code: 'ABS 300-B Spot Lot C', alt3Price: 136.00 },
     { id: 'rm-ha-2', vendor: 'Haier Appliances', type: 'RM', approvedCode: 'GPPS SC201LV', approvedPrice: 100.00, activeAlt: 'alt1', alt1Code: 'GPPS SC201LV + 3.5% Smoke Grey Blend', alt1Price: 98.40, alt2Code: 'GPPS SC206 Virgin Lot', alt2Price: 99.10, alt3Code: 'GPPS SC200 Inward Lot 3', alt3Price: 98.90 },
     { id: 'mb-ha-1', vendor: 'Haier Appliances', type: 'MB', approvedCode: 'Smoke Grey MB (3.5%)', approvedPrice: 150.00, activeAlt: 'alt1', alt1Code: 'Smoke Grey Masterbatch Grade A', alt1Price: 148.00, alt2Code: 'Smoke Grey Masterbatch Lot B', alt2Price: 149.50, alt3Code: 'Smoke Grey Masterbatch Spot', alt3Price: 150.00 },
-    { id: 'rm-ha-3', vendor: 'Haier Appliances', type: 'RM', approvedCode: 'HIPS-SH03', approvedPrice: 147.87, activeAlt: 'alt1', alt1Code: 'HIPS-SH03 Prime Lot', alt1Price: 157.46, alt2Code: '', alt2Price: 0.00, alt3Code: '', alt3Price: 0.00 },
-    { id: 'rm-ha-4', vendor: 'Haier Appliances', type: 'RM', approvedCode: 'PP B-400MN', approvedPrice: 132.76, activeAlt: 'alt1', alt1Code: 'PP B-400MN (IOCL)', alt1Price: 135.00, alt2Code: '', alt2Price: 0.00, alt3Code: '', alt3Price: 0.00 },
-    { id: 'mb-ha-2', vendor: 'Haier Appliances', type: 'MB', approvedCode: 'White MB', approvedPrice: 250.00, activeAlt: 'alt1', alt1Code: 'White MB Grade A', alt1Price: 250.00, alt2Code: '', alt2Price: 0.00, alt3Code: '', alt3Price: 0.00 },
+    { id: 'rm-ha-3', vendor: 'Haier Appliances', type: 'RM', approvedCode: 'HIPS-SH03', approvedPrice: 147.87, activeAlt: 'alt1', alt1Code: 'HIPS-SH03 Prime Lot', alt1Price: 157.46, alt2Code: '', alt2Price: 0, alt3Code: '', alt3Price: 0 },
+    { id: 'rm-ha-4', vendor: 'Haier Appliances', type: 'RM', approvedCode: 'PP B-400MN', approvedPrice: 132.76, activeAlt: 'alt1', alt1Code: 'PP B-400MN (IOCL)', alt1Price: 135.00, alt2Code: '', alt2Price: 0, alt3Code: '', alt3Price: 0 },
+    { id: 'mb-ha-2', vendor: 'Haier Appliances', type: 'MB', approvedCode: 'White MB', approvedPrice: 250.00, activeAlt: 'alt1', alt1Code: 'White MB Grade A', alt1Price: 250.00, alt2Code: '', alt2Price: 0, alt3Code: '', alt3Price: 0 },
 
     // Atharva Polymer
-    { id: 'rm-ath-1', vendor: 'Atharva Polymer', type: 'RM', approvedCode: 'HIPS-SH03', approvedPrice: 147.87, activeAlt: 'alt1', alt1Code: 'HIPS-SH03 Prime Lot', alt1Price: 157.46, alt2Code: '', alt2Price: 0.00, alt3Code: '', alt3Price: 0.00 },
-    { id: 'rm-ath-2', vendor: 'Atharva Polymer', type: 'RM', approvedCode: 'PP B-400MN', approvedPrice: 132.76, activeAlt: 'alt1', alt1Code: 'PP B-400MN (IOCL)', alt1Price: 135.00, alt2Code: '', alt2Price: 0.00, alt3Code: '', alt3Price: 0.00 },
-    { id: 'mb-ath-1', vendor: 'Atharva Polymer', type: 'MB', approvedCode: 'White MB', approvedPrice: 250.00, activeAlt: 'alt1', alt1Code: 'White MB Grade A', alt1Price: 250.00, alt2Code: '', alt2Price: 0.00, alt3Code: '', alt3Price: 0.00 }
+    { id: 'rm-ath-1', vendor: 'Atharva Polymer', type: 'RM', approvedCode: 'HIPS-SH03', approvedPrice: 147.87, activeAlt: 'alt1', alt1Code: 'HIPS-SH03 Prime Lot', alt1Price: 157.46, alt2Code: '', alt2Price: 0, alt3Code: '', alt3Price: 0 },
+    { id: 'rm-ath-2', vendor: 'Atharva Polymer', type: 'RM', approvedCode: 'PP B-400MN', approvedPrice: 132.76, activeAlt: 'alt1', alt1Code: 'PP B-400MN (IOCL)', alt1Price: 135.00, alt2Code: '', alt2Price: 0, alt3Code: '', alt3Price: 0 },
+    { id: 'mb-ath-1', vendor: 'Atharva Polymer', type: 'MB', approvedCode: 'White MB', approvedPrice: 250.00, activeAlt: 'alt1', alt1Code: 'White MB Grade A', alt1Price: 250.00, alt2Code: '', alt2Price: 0, alt3Code: '', alt3Price: 0 }
   ],
 
   // Products Baseline Master
@@ -132,37 +137,6 @@ export let globalStore = {
       }
     },
     {
-      id: 'prod-at-4',
-      vendor: 'Atomberg Technologies',
-      itemCode: 'A1017011_tt4',
-      componentName: 'Aris Top Canopy- Gloss White',
-      approvedRm: 'PP Mi3530 + GOLDEN MB',
-      baseRm: 'PP Mi3530',
-      approvedMb: 'GOLDEN MB',
-      masterbatchPct: 4.0,
-      cavity: 2,
-      netWeight: 37.0,
-      runnerWeight: 1.0,
-      bopCost: 0.00,
-      machineTonnage: 200,
-      shiftTariff: 2000,
-      cycleTimeApproved: 47,
-      packingCost: 0.86,
-      transportCost: 0.62,
-      parameters: {
-        runningNetWeight: 37.0,
-        runningRunnerWeight: 1.0,
-        runningMbPct: 4.0,
-        runningBopCost: 0.00,
-        runningCycleTime: 47,
-        runningCavity: 2,
-        runningTonnage: 200,
-        runningShiftTariff: 2000,
-        runningPackingCost: 0.86,
-        runningTransportCost: 0.62
-      }
-    },
-    {
       id: 'prod-ha-1',
       vendor: 'Haier Appliances',
       itemCode: '0060217989D',
@@ -226,12 +200,17 @@ export let globalStore = {
     }
   ],
 
-  // Inward Purchases Table
   purchases: [
-    { date: '2026-08-10', supplier: 'Reliance Industries Ltd', invoiceNo: 'INV-AT-001', itemCode: 'RM-PP-01', grade: 'PP H110MA Prime Inward', qty: 4500, rate: 133.80 },
-    { date: '2026-08-05', supplier: 'LG Polymers India', invoiceNo: 'INV-HR-002', itemCode: 'MB-WHT-01', grade: 'White MB Grade A', qty: 300, rate: 250.00 },
-    { date: '2026-08-01', supplier: 'Supreme Petrochem Ltd', invoiceNo: 'INV-HR-001', itemCode: 'RM-ABS-01', grade: 'ABS 300-B Red (Prime Inward)', qty: 5000, rate: 134.80 },
-    { date: '2026-05-04', supplier: 'Supreme Petrochem Ltd', invoiceNo: 'INV-HR-MAY01', itemCode: 'RM-ABS-01', grade: 'ABS 300-B Red (Prime Inward)', qty: 4500, rate: 135.50 }
+    { date: '2026-05-04', supplier: 'Supreme Petrochem Ltd', invoiceNo: 'INV-HR-MAY01', itemCode: 'RM-ABS-01', grade: 'ABS 300-B Red (Prime Inward)', qty: 4500, rate: 135.50 },
+    { date: '2026-05-12', supplier: 'LG Polymers India', invoiceNo: 'INV-HR-MAY02', itemCode: 'RM-GPPS-01', grade: 'GPPS SC201LV + 3.5% Smoke Grey Blend', qty: 3000, rate: 99.20 },
+    { date: '2026-05-18', supplier: 'Reliance Industries Ltd', invoiceNo: 'INV-AT-MAY01', itemCode: 'RM-PP-01', grade: 'PP H110MA Prime Inward', qty: 4000, rate: 132.50 },
+    { date: '2026-06-03', supplier: 'Supreme Petrochem Ltd', invoiceNo: 'INV-HR-JUN01', itemCode: 'RM-ABS-01', grade: 'ABS 300-B Red (Prime Inward)', qty: 5000, rate: 135.00 },
+    { date: '2026-06-15', supplier: 'LG Polymers India', invoiceNo: 'INV-HR-JUN02', itemCode: 'RM-GPPS-01', grade: 'GPPS SC201LV + 3.5% Smoke Grey Blend', qty: 2800, rate: 98.90 },
+    { date: '2026-06-20', supplier: 'Reliance Industries Ltd', invoiceNo: 'INV-AT-JUN01', itemCode: 'RM-PP-01', grade: 'PP H110MA Prime Inward', qty: 4500, rate: 133.80 },
+    { date: '2026-07-05', supplier: 'Supreme Petrochem Ltd', invoiceNo: 'INV-HR-JUL01', itemCode: 'RM-ABS-01', grade: 'ABS 300-B Red (Prime Inward)', qty: 5200, rate: 134.90 },
+    { date: '2026-07-16', supplier: 'LG Polymers India', invoiceNo: 'INV-HR-JUL02', itemCode: 'RM-GPPS-01', grade: 'GPPS SC201LV + 3.5% Smoke Grey Blend', qty: 3200, rate: 98.60 },
+    { date: '2026-07-22', supplier: 'Reliance Industries Ltd', invoiceNo: 'INV-AT-JUL01', itemCode: 'RM-PP-01', grade: 'PP H110MA Prime Inward', qty: 5000, rate: 134.50 },
+    { date: '2026-08-01', supplier: 'Supreme Petrochem Ltd', invoiceNo: 'INV-HR-AUG01', itemCode: 'RM-ABS-01', grade: 'ABS 300-B Red (Prime Inward)', qty: 6000, rate: 134.80 }
   ],
 
   sales: [
@@ -239,6 +218,12 @@ export let globalStore = {
     { date: '2026-05-15', vendor: 'Haier Appliances', invoiceNo: 'DISP-HR-002', itemCode: '0060217978E', componentName: 'CRISPER GPPS LV + 3.5% SMOKE GREY VEG BOX', qty: 1500, sellingPrice: 85.00 },
     { date: '2026-05-20', vendor: 'Atomberg Technologies', invoiceNo: 'DISP-AT-001', itemCode: 'A1017011_tt2', componentName: 'Aris Top Canopy- Gloss White', qty: 3000, sellingPrice: 14.50 },
     { date: '2026-05-25', vendor: 'Atomberg Technologies', invoiceNo: 'DISP-AT-002', itemCode: 'A1017031_tt2', componentName: 'Aris Top Canopy- Gloss Black', qty: 900, sellingPrice: 15.96 },
+    { date: '2026-06-11', vendor: 'Haier Appliances', invoiceNo: 'DISP-HR-003', itemCode: '0060217989D', componentName: 'End cap Bottom Ref-ABS-DC-195,220', qty: 4000, sellingPrice: 42.00 },
+    { date: '2026-06-18', vendor: 'Haier Appliances', invoiceNo: 'DISP-HR-004', itemCode: '0060217978E', componentName: 'CRISPER GPPS LV + 3.5% SMOKE GREY VEG BOX', qty: 1600, sellingPrice: 85.00 },
+    { date: '2026-06-22', vendor: 'Atomberg Technologies', invoiceNo: 'DISP-AT-003', itemCode: 'A1017011_tt2', componentName: 'Aris Top Canopy- Gloss White', qty: 3200, sellingPrice: 14.50 },
+    { date: '2026-06-28', vendor: 'Atomberg Technologies', invoiceNo: 'DISP-AT-004', itemCode: 'A1017031_tt2', componentName: 'Aris Top Canopy- Gloss Black', qty: 950, sellingPrice: 15.96 },
+    { date: '2026-07-10', vendor: 'Haier Appliances', invoiceNo: 'DISP-HR-005', itemCode: '0060217989D', componentName: 'End cap Bottom Ref-ABS-DC-195,220', qty: 4100, sellingPrice: 42.00 },
+    { date: '2026-07-15', vendor: 'Haier Appliances', invoiceNo: 'DISP-HR-006', itemCode: '0060217978E', componentName: 'CRISPER GPPS LV + 3.5% SMOKE GREY VEG BOX', qty: 1700, sellingPrice: 85.00 },
     { date: '2026-08-10', vendor: 'Haier Appliances', invoiceNo: 'DISP-HR-007', itemCode: '0060217989D', componentName: 'End cap Bottom Ref-ABS-DC-195,220', qty: 4200, sellingPrice: 42.00 },
     { date: '2026-08-12', vendor: 'Haier Appliances', invoiceNo: 'DISP-HR-008', itemCode: '0060217978E', componentName: 'CRISPER GPPS LV + 3.5% SMOKE GREY VEG BOX', qty: 1800, sellingPrice: 85.00 }
   ],
@@ -256,7 +241,7 @@ export function notifyStore() {
 }
 
 // ----------------------------------------------------------------------------
-// MATERIAL STRING PARSER
+// SINGLE SOURCE OF TRUTH: Material String Parser & Price Resolution
 // ----------------------------------------------------------------------------
 export function parseMaterialString(rawMaterialStr) {
   if (!rawMaterialStr) return { baseRm: '', mbGrade: '' };
@@ -274,20 +259,8 @@ export function parseMaterialString(rawMaterialStr) {
   };
 }
 
-// ----------------------------------------------------------------------------
-// PRICE RESOLUTION ENGINE: Returns Approved Contract & Active Alternate WA
-// ----------------------------------------------------------------------------
 export function getActiveRmMapping(gradeName, vendor, targetDate) {
-  if (!gradeName) {
-    return { 
-      approvedCode: 'Unspecified',
-      approvedPrice: 0.00, 
-      activeGrade: 'Unspecified', 
-      activeWaPrice: 0.00, 
-      activeAltKey: 'alt1',
-      isFound: false 
-    };
-  }
+  if (!gradeName) return { approvedPrice: 0.0, activeWaPrice: 0.0, activeGrade: 'Unspecified', isFound: false };
   
   const { baseRm } = parseMaterialString(gradeName);
   const targetCode = (baseRm || gradeName).toLowerCase().trim();
@@ -301,27 +274,16 @@ export function getActiveRmMapping(gradeName, vendor, targetDate) {
 
   if (found) {
     const activeKey = found.activeAlt || 'alt1';
-    const waPrice = Number(found[`${activeKey}Price`] !== undefined ? found[`${activeKey}Price`] : (found.alt1Price || found.approvedPrice || 0));
-    const activeGradeName = found[`${activeKey}Code`] || found.alt1Code || found.approvedCode;
-
+    const waPrice = Number(found[`${activeKey}Price`] || found.alt1Price || found.approvedPrice || 0);
     return {
-      approvedCode: found.approvedCode,
       approvedPrice: Number(found.approvedPrice || 0),
-      activeGrade: activeGradeName,
-      activeWaPrice: Number(waPrice || 0),
-      activeAltKey: activeKey,
+      activeWaPrice: waPrice,
+      activeGrade: found[`${activeKey}Code`] || found.alt1Code || found.approvedCode,
       isFound: true
     };
   }
 
-  return { 
-    approvedCode: baseRm || gradeName, 
-    approvedPrice: 0.00, 
-    activeGrade: baseRm || gradeName, 
-    activeWaPrice: 0.00, 
-    activeAltKey: 'alt1',
-    isFound: false 
-  };
+  return { approvedPrice: 0.00, activeWaPrice: 0.00, activeGrade: baseRm || gradeName, isFound: false };
 }
 
 export function getActiveMbMapping(mbGradeName, vendor, targetDate) {
@@ -329,14 +291,7 @@ export function getActiveMbMapping(mbGradeName, vendor, targetDate) {
   let targetMb = (mbGradeName || '').toLowerCase().trim();
 
   if (!targetMb) {
-    return { 
-      approvedMbCode: 'None',
-      approvedMbPrice: 0.00, 
-      activeMbGrade: 'None', 
-      activeMbWaPrice: 0.00, 
-      activeAltKey: 'alt1',
-      isFound: false 
-    };
+    return { approvedMbPrice: 0.00, activeMbWaPrice: 0.00, isFound: false };
   }
 
   const found = (globalStore.rmMappingsData || []).find(r => 
@@ -347,50 +302,15 @@ export function getActiveMbMapping(mbGradeName, vendor, targetDate) {
 
   if (found) {
     const activeKey = found.activeAlt || 'alt1';
-    const waPrice = Number(found[`${activeKey}Price`] !== undefined ? found[`${activeKey}Price`] : (found.alt1Price || found.approvedPrice || 0));
-    const activeGradeName = found[`${activeKey}Code`] || found.alt1Code || found.approvedCode;
-
+    const waPrice = Number(found[`${activeKey}Price`] || found.alt1Price || found.approvedPrice || 0);
     return {
-      approvedMbCode: found.approvedCode,
       approvedMbPrice: Number(found.approvedPrice || 0),
-      activeMbGrade: activeGradeName,
-      activeMbWaPrice: Number(waPrice || 0),
-      activeAltKey: activeKey,
+      activeMbWaPrice: waPrice,
       isFound: true
     };
   }
 
-  return { 
-    approvedMbCode: mbGradeName, 
-    approvedMbPrice: 0.00, 
-    activeMbGrade: mbGradeName, 
-    activeMbWaPrice: 0.00, 
-    activeAltKey: 'alt1',
-    isFound: false 
-  };
-}
-
-// Robust purchase WA calculation matching both grade and itemCode
-export function computeGradeWeightedAverage(gradeName) {
-  if (!gradeName) return 0.00;
-  const gClean = gradeName.toString().toLowerCase().trim();
-  const purchases = globalStore.purchases || [];
-
-  const matched = purchases.filter(p => {
-    const pGrade = (p.grade || '').toString().toLowerCase().trim();
-    const pCode = (p.itemCode || '').toString().toLowerCase().trim();
-    return pGrade === gClean || pCode === gClean || pGrade.includes(gClean) || gClean.includes(pGrade);
-  });
-
-  if (matched.length === 0) return 0.00;
-
-  const totalQty = matched.reduce((acc, p) => acc + (Number(p.qty) || 0), 0);
-  const totalVal = matched.reduce((acc, p) => acc + ((Number(p.qty) || 0) * (Number(p.rate) || 0)), 0);
-
-  if (totalQty > 0) {
-    return Number((totalVal / totalQty).toFixed(2));
-  }
-  return Number(matched[0].rate || 0);
+  return { approvedMbPrice: 0.00, activeMbWaPrice: 0.00, isFound: false };
 }
 
 // ----------------------------------------------------------------------------
@@ -405,8 +325,6 @@ export function addOrUpdateVendorMaterial({ id, vendor, type, approvedCode, appr
      r.type === type && 
      r.approvedCode.toLowerCase().trim() === approvedCode.toLowerCase().trim())
   );
-
-  const initialWa = alt1Price !== undefined ? Number(alt1Price) : computeGradeWeightedAverage(approvedCode) || Number(approvedPrice || 0);
 
   if (existingIdx >= 0) {
     globalStore.rmMappingsData[existingIdx] = {
@@ -424,11 +342,11 @@ export function addOrUpdateVendorMaterial({ id, vendor, type, approvedCode, appr
       approvedPrice: Number(approvedPrice || 0),
       activeAlt: 'alt1',
       alt1Code: alt1Code || approvedCode,
-      alt1Price: initialWa,
+      alt1Price: alt1Price !== undefined ? Number(alt1Price) : Number(approvedPrice || 0),
       alt2Code: '',
-      alt2Price: 0.00,
+      alt2Price: 0,
       alt3Code: '',
-      alt3Price: 0.00
+      alt3Price: 0
     });
   }
 
@@ -456,12 +374,7 @@ export function autoRegisterVendorRM({ vendor, approvedCode, approvedPrice, type
 
 export function getPurchasedGradesForVendor(vendor) {
   const purchases = globalStore.purchases || [];
-  const list = [];
-  purchases.forEach(p => {
-    if (p.grade) list.push(p.grade.toString().trim());
-    if (p.itemCode) list.push(p.itemCode.toString().trim());
-  });
-  return Array.from(new Set(list.filter(Boolean)));
+  return Array.from(new Set(purchases.map(p => p.grade || p.itemCode).filter(Boolean)));
 }
 
 export function deleteVendorMaterial(id) {
@@ -653,3 +566,17 @@ export function addDayWiseSales(record) {
   notifyStore();
   return { success: true };
 }
+STORE_EOF
+
+echo "==> 2. Verifying clean build with npm run build..."
+npm run build
+
+echo "==> 3. Restarting Vite development server cleanly on port 5173..."
+fuser -k 5173/tcp 2>/dev/null || killall -9 node 2>/dev/null || true
+rm -rf node_modules/.vite 2>/dev/null || true
+nohup npm run dev -- --force --host 0.0.0.0 --port 5173 > /tmp/vite_server.log 2>&1 &
+sleep 2
+
+echo "-------------------------------------------------------------------"
+echo "✅ SUCCESS! Build passed cleanly and Vite server running on port 5173."
+echo "-------------------------------------------------------------------"

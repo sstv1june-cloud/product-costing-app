@@ -1,3 +1,8 @@
+#!/usr/bin/env bash
+set -e
+
+echo "==> 1. Updating MISVariancePage.jsx with the Top 6 Profit & Loss Multi-Month Drilldown Report..."
+cat << 'PAGE_EOF' > src/modules/module4-mis/MISVariancePage.jsx
 import React, { useState, useEffect } from 'react';
 import { 
   TrendingUp, 
@@ -16,9 +21,7 @@ import {
   Activity,
   DollarSign,
   ArrowUpRight,
-  ArrowDownRight,
-  ArrowRightLeft,
-  Building2
+  ArrowDownRight
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { 
@@ -203,38 +206,7 @@ export default function MISVariancePage() {
   const totalCostVariance = detailedRows.reduce((acc, r) => acc + r.totalProfitLoss, 0);
   const grossMarginPercentage = totalSalesRevenue > 0 ? ((totalGrossMargin / totalSalesRevenue) * 100).toFixed(1) : 0;
 
-  // 4. Vendor-Wise Period Comparison (Current Period vs Previous Period / Month)
-  const vendorComparisonData = [
-    {
-      vendorName: "Haier Appliances",
-      currSalesRev: "₹987,500",
-      currVariance: "+ ₹11,934",
-      prevSalesRev: "₹224,500",
-      prevVariance: "+ ₹5,480",
-      revGrowth: "+340%",
-      varianceDelta: "+ ₹6,454"
-    },
-    {
-      vendorName: "Atomberg Technologies",
-      currSalesRev: "₹249,460",
-      currVariance: "- ₹3,105",
-      prevSalesRev: "₹91,200",
-      prevVariance: "- ₹1,180",
-      revGrowth: "+173%",
-      varianceDelta: "- ₹1,925"
-    },
-    {
-      vendorName: "Atharva Polymer",
-      currSalesRev: "₹180,356",
-      currVariance: "+ ₹2,150",
-      prevSalesRev: "₹65,000",
-      prevVariance: "+ ₹850",
-      revGrowth: "+177%",
-      varianceDelta: "+ ₹1,300"
-    }
-  ];
-
-  // 5. Dynamic Multi-Month Drilldown Matrix (Top 6 Profit & Top 6 Loss Parts across Months 1-4)
+  // 4. Dynamic Multi-Month Drilldown Matrix (Top 6 Profit & Top 6 Loss Parts across Months 1-4)
   const isTrendAtomberg = trendVendor.toLowerCase().includes('atomberg');
 
   const trendSalesRev = isTrendAtomberg 
@@ -265,7 +237,7 @@ export default function MISVariancePage() {
     { code: "0060219901A", name: "Hinge Hole Cap White", m1: "- ₹90", m2: "- ₹110", m3: "- ₹120", m4: "- ₹320" }
   ];
 
-  // 6. Parameter Gap Breakdown Drivers
+  // 5. Parameter Gap Breakdown Drivers
   const gapDrivers = [
     { driver: "Polymer Base Rate Variance (RM Purchase vs Approved Contract)", haierImpact: "+ ₹8,532", atombergImpact: "- ₹3,105", netTotal: "+ ₹5,427", status: "Favorable" },
     { driver: "Masterbatch Rate Variance (MB Actual Landed vs Approved)", haierImpact: "+ ₹420", atombergImpact: "- ₹415", netTotal: "+ ₹5", status: "Neutral" },
@@ -520,86 +492,7 @@ export default function MISVariancePage() {
         )}
       </div>
 
-      {/* TABLE 2: VENDOR PERIOD COMPARISON MATRIX (EXACT MATCH TO YOUR NEW EXCEL MOCKUP) */}
-      <div className="bg-white rounded-2xl border border-slate-300 overflow-hidden shadow-sm">
-        <div className="p-3.5 bg-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-blue-400" />
-            <h2 className="text-xs font-bold uppercase tracking-wider">VENDOR-WISE PERIOD VS PREVIOUS PERIOD COMPARISON</h2>
-          </div>
-
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-slate-400 font-semibold">Filter: Period From</span>
-            <input type="date" value={periodStart} onChange={e => setPeriodStart(e.target.value)} className="px-2 py-1 rounded-lg bg-slate-800 text-white border border-slate-700" />
-            <span className="text-slate-400">To</span>
-            <input type="date" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)} className="px-2 py-1 rounded-lg bg-slate-800 text-white border border-slate-700" />
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead className="bg-slate-100 text-slate-700 uppercase font-bold text-[10px]">
-              <tr>
-                <th rowSpan={2} className="py-3 px-4 border-r border-slate-200 align-middle">VENDOR</th>
-                <th colSpan={2} className="py-2 px-4 text-center bg-blue-50/80 text-blue-900 border-r border-slate-200">
-                  CURRENT PERIOD ({periodStart} to {periodEnd})
-                </th>
-                <th colSpan={2} className="py-2 px-4 text-center bg-slate-200/70 text-slate-800 border-r border-slate-200">
-                  PREVIOUS PERIOD / MONTH
-                </th>
-                <th colSpan={2} className="py-2 px-4 text-center bg-emerald-50/80 text-emerald-900">
-                  PERIOD-ON-PERIOD GROWTH / VARIANCE (Δ)
-                </th>
-              </tr>
-              <tr>
-                <th className="py-2 px-4 text-right bg-blue-50/50 text-blue-900 font-bold">TOTAL SALES REVENUE</th>
-                <th className="py-2 px-4 text-right bg-blue-50/50 text-blue-900 font-bold border-r border-slate-200">COST VARIANCE GAIN / LOSS</th>
-                <th className="py-2 px-4 text-right bg-slate-100 text-slate-700 font-bold">TOTAL SALES REVENUE</th>
-                <th className="py-2 px-4 text-right bg-slate-100 text-slate-700 font-bold border-r border-slate-200">COST VARIANCE GAIN / LOSS</th>
-                <th className="py-2 px-4 text-center bg-emerald-50/40 text-emerald-900 font-bold">REVENUE GROWTH %</th>
-                <th className="py-2 px-4 text-right bg-emerald-50/40 text-emerald-900 font-bold">VARIANCE DELTA (Δ)</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {vendorComparisonData.map((v, idx) => (
-                <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                  <td className="py-3 px-4 font-bold text-slate-900 border-r border-slate-100 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-blue-600"></span>
-                    {v.vendorName}
-                  </td>
-                  <td className="py-3 px-4 text-right font-mono font-bold text-blue-900 bg-blue-50/20">{v.currSalesRev}</td>
-                  <td className={`py-3 px-4 text-right font-mono font-bold border-r border-slate-100 ${v.currVariance.startsWith('+') ? 'text-emerald-700' : 'text-rose-600'}`}>
-                    {v.currVariance}
-                  </td>
-                  <td className="py-3 px-4 text-right font-mono text-slate-600 bg-slate-50/40">{v.prevSalesRev}</td>
-                  <td className={`py-3 px-4 text-right font-mono font-semibold border-r border-slate-100 ${v.prevVariance.startsWith('+') ? 'text-emerald-700' : 'text-rose-600'}`}>
-                    {v.prevVariance}
-                  </td>
-                  <td className="py-3 px-4 text-center font-mono font-bold text-emerald-600">{v.revGrowth}</td>
-                  <td className={`py-3 px-4 text-right font-mono font-black ${v.varianceDelta.startsWith('+') ? 'text-emerald-700' : 'text-rose-600'}`}>
-                    {v.varianceDelta}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot className="bg-slate-900 text-white font-bold">
-              <tr>
-                <td className="py-3 px-4 uppercase tracking-wider text-amber-400">ALL VENDORS COMBINED</td>
-                <td className="py-3 px-4 text-right font-mono font-black text-amber-300">₹{totalSalesRevenue.toLocaleString()}</td>
-                <td className={`py-3 px-4 text-right font-mono font-black border-r border-slate-700 ${totalCostVariance >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                  {totalCostVariance >= 0 ? `+ ₹${totalCostVariance.toLocaleString()}` : `- ₹${Math.abs(totalCostVariance).toLocaleString()}`}
-                </td>
-                <td className="py-3 px-4 text-right font-mono text-slate-300">₹380,700</td>
-                <td className="py-3 px-4 text-right font-mono text-emerald-400 border-r border-slate-700">+ ₹5,150</td>
-                <td className="py-3 px-4 text-center font-mono text-emerald-400 font-black">+225%</td>
-                <td className="py-3 px-4 text-right font-mono text-emerald-400 font-black">+ ₹3,679</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </div>
-
-      {/* TABLE 3: MULTI-MONTH DRILLDOWN (TOP 6 PROFIT & LOSS) */}
+      {/* TABLE 2: EXACT MULTI-MONTH DRILLDOWN (EXACT MATCH TO YOUR MOCKUP) */}
       <div className="bg-white rounded-2xl border border-slate-300 overflow-hidden shadow-sm">
         <div className="p-3.5 bg-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
           <div className="flex items-center gap-2">
@@ -633,6 +526,7 @@ export default function MISVariancePage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
+              {/* Primary Aggregate Metrics */}
               <tr className="bg-slate-50/80 font-bold">
                 <td className="py-2.5 px-4 uppercase text-slate-900">TOTAL SALES REVENUE</td>
                 <td className="py-2.5 px-4 text-right font-mono text-slate-700">{trendSalesRev.m1}</td>
@@ -649,6 +543,7 @@ export default function MISVariancePage() {
                 <td className="py-2.5 px-4 text-right font-mono text-emerald-700 bg-blue-50/30">{trendCostVariance.m4}</td>
               </tr>
 
+              {/* Top-6 Parts with Profit Drilldown Header */}
               <tr className="bg-emerald-100/50">
                 <td colSpan={5} className="py-2 px-4 font-bold text-emerald-900 flex items-center gap-1.5">
                   <ArrowUpRight className="w-4 h-4 text-emerald-700" /> DrillDown - COST VARIANCE GAIN / LOSS: Top-6 parts with Profit (Favorable Variance)
@@ -668,6 +563,7 @@ export default function MISVariancePage() {
                 </tr>
               ))}
 
+              {/* Top-6 Parts with Loss Drilldown Header */}
               <tr className="bg-rose-100/50">
                 <td colSpan={5} className="py-2 px-4 font-bold text-rose-900 flex items-center gap-1.5">
                   <ArrowDownRight className="w-4 h-4 text-rose-700" /> DrillDown: Top-6 parts with Loss (Unfavorable Variance / Drift)
@@ -691,7 +587,7 @@ export default function MISVariancePage() {
         </div>
       </div>
 
-      {/* TABLE 4: ROOT-CAUSE COST GAP BREAKDOWN BY DRIVER */}
+      {/* TABLE 3: ROOT-CAUSE COST GAP BREAKDOWN BY DRIVER */}
       <div className="bg-white rounded-2xl border border-slate-300 overflow-hidden shadow-sm">
         <div className="p-3.5 bg-slate-900 text-white flex justify-between items-center">
           <div className="flex items-center gap-2">
@@ -735,3 +631,17 @@ export default function MISVariancePage() {
     </div>
   );
 }
+PAGE_EOF
+
+echo "==> 2. Verifying build with npm run build..."
+npm run build
+
+echo "==> 3. Restarting Vite development server cleanly on port 5173..."
+fuser -k 5173/tcp 2>/dev/null || killall -9 node 2>/dev/null || true
+rm -rf node_modules/.vite 2>/dev/null || true
+nohup npm run dev -- --force --host 0.0.0.0 --port 5173 > /tmp/vite_server.log 2>&1 &
+sleep 2
+
+echo "-------------------------------------------------------------------"
+echo "✅ SUCCESS! Multi-Month Drilldown Report (Top 6 Profit & Loss) is live!"
+echo "-------------------------------------------------------------------"

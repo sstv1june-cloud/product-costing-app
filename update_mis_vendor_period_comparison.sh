@@ -1,3 +1,8 @@
+#!/usr/bin/env bash
+set -e
+
+echo "==> 1. Updating MISVariancePage.jsx with Vendor Period vs Previous Period Comparison Matrix..."
+cat << 'PAGE_EOF' > src/modules/module4-mis/MISVariancePage.jsx
 import React, { useState, useEffect } from 'react';
 import { 
   TrendingUp, 
@@ -735,3 +740,17 @@ export default function MISVariancePage() {
     </div>
   );
 }
+PAGE_EOF
+
+echo "==> 2. Verifying build with npm run build..."
+npm run build
+
+echo "==> 3. Restarting Vite development server cleanly on port 5173..."
+fuser -k 5173/tcp 2>/dev/null || killall -9 node 2>/dev/null || true
+rm -rf node_modules/.vite 2>/dev/null || true
+nohup npm run dev -- --force --host 0.0.0.0 --port 5173 > /tmp/vite_server.log 2>&1 &
+sleep 2
+
+echo "-------------------------------------------------------------------"
+echo "✅ SUCCESS! Vendor-Wise Period Comparison Matrix is live!"
+echo "-------------------------------------------------------------------"

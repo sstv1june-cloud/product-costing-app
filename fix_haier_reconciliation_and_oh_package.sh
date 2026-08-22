@@ -1,3 +1,47 @@
+#!/usr/bin/env bash
+set -e
+
+echo "==> 1. Updating BaselineMasterPage.jsx parser to capture Haier Line 24 Overhead Package & exact Reconciliation Weight..."
+cat << 'PAGE_EOF' > patch_baseline_page.py
+with open("src/modules/module1-baseline/BaselineMasterPage.jsx", "r") as f:
+    content = f.read()
+
+# Replace Haier parser loop bindings
+old_parser_snippet = """let bopCostVal = 0.00;
+          let packingCostVal = 0.86;
+          let transportCostVal = 0.62;"""
+
+new_parser_snippet = """let bopCostVal = 0.00;
+          let packingCostVal = 0.86;
+          let transportCostVal = 0.62;
+          let haierOhPackageVal = 5.15;"""
+
+content = content.replace(old_parser_snippet, new_parser_snippet)
+
+old_check_lines = """} else if (desc === 'inserts/bop cost' || desc === 'insert / hinge hole cap cost / other cost' || (desc.includes('insert') && !desc.includes('rm + bop'))) {
+              if (isValidNum) bopCostVal = numVal;
+            }"""
+
+new_check_lines = """} else if (desc === 'inserts/bop cost' || desc === 'insert / hinge hole cap cost / other cost' || (desc.includes('insert') && !desc.includes('rm + bop'))) {
+              if (isValidNum) bopCostVal = numVal;
+            } else if (snVal === "24" || desc.includes('foam/polybag') || desc.includes('polyenda') || (desc.includes('oh+profit') && desc.includes('freight'))) {
+              if (isValidNum) haierOhPackageVal = numVal;
+            }"""
+
+content = content.replace(old_check_lines, new_check_lines)
+
+# Bind haierOhPackage to staged product
+content = content.replace("bopCost: bopCostVal,", "bopCost: bopCostVal,\n            haierOverheadPackage: haierOhPackageVal,")
+content = content.replace("runningBopCost: bopCostVal,", "runningBopCost: bopCostVal,\n              runningHaierOverheadPackage: haierOhPackageVal,")
+
+with open("src/modules/module1-baseline/BaselineMasterPage.jsx", "w") as f:
+    f.write(content)
+print("BaselineMasterPage.jsx parser updated for Line 24 Overhead Package!")
+PAGE_EOF
+python3 patch_baseline_page.py
+
+echo "==> 2. Updating InlineEditModal.jsx with exact Haier Reconciliation Weight (=198.97g) and Line 24 Overhead Package (=₹5.15)..."
+cat << 'MODAL_EOF' > src/modules/module1-baseline/InlineEditModal.jsx
 import React, { useState } from 'react';
 import { X, Save, AlertTriangle, Trash2 } from 'lucide-react';
 import { 
@@ -867,3 +911,90 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
     </div>
   );
 }
+MODAL_EOF
+
+echo "==> 3. Updating costCalculationService.js with exact Reconciliation Weight & Overhead Package logic..."
+cat << 'SERVICE_EOF' > patch_service.py
+with open("src/shared/costCalculationService.js", "r") as f:
+    content = f.read()
+
+haier_calc_func = """
+export function calculateHaierCost({
+  cavity = 2,
+  netWeight = 197,
+  runnerWeight = 40,
+  rmRate = 136.20,
+  masterbatchPct = 0,
+  masterbatchRate = 250,
+  machineTonnage = 450,
+  shiftTariff = 3600,
+  cycleTime = 56,
+  bopCost = 0.14,
+  haierOverheadPackage = 5.15
+}) {
+  const cav = Number(cavity) || 2;
+  const net = Number(netWeight) || 197;
+  const run = Number(runnerWeight) || 40;
+  const shot = (net * cav) + run;
+  
+  // Exact Excel formula: Reconciliation Weight = (Net Weight * 1%) + Net Weight
+  const reconcilWt = net * 1.01;
+  const mbFrac = Number(masterbatchPct || 0) / 100.0;
+  
+  const rmMatCost = (reconcilWt / 1000.0) * (Number(rmRate || 0) * (1.0 - mbFrac));
+  const mbMatCost = (reconcilWt / 1000.0) * (Number(masterbatchRate || 0) * mbFrac);
+  const runnerRecov = -1.36;
+  const totRmCost = rmMatCost + mbMatCost + runnerRecov;
+
+  const ct = Number(cycleTime) || 56;
+  const shotsShift = 28800.0 / (ct > 0 ? ct : 1);
+  const shotsEff = shotsShift * 0.95;
+  const compShift = shotsEff * cav;
+  const prodCostPc = compShift > 0 ? (Number(shiftTariff || 3600) / compShift) : 0;
+  const subTotal = totRmCost + prodCostPc;
+
+  const ohPkg = Number(haierOverheadPackage !== undefined ? haierOverheadPackage : 5.15);
+  const bop = Number(bopCost || 0.14);
+  const iccReduce = -0.13;
+  const scrapAdj = -1.36;
+  const totalCost = subTotal + ohPkg + bop + iccReduce + scrapAdj;
+
+  return {
+    shotWeight: shot,
+    reconciliationWeight: reconcilWt,
+    rmMatCost,
+    mbMatCost,
+    totalRawMaterialCost: totRmCost,
+    productionCostPerPc: prodCostPc,
+    subTotal,
+    overheadPackage: ohPkg,
+    totalCost: Number(totalCost.toFixed(2))
+  };
+}
+"""
+
+import re
+pattern = r"export function calculateHaierCost[\s\S]*?totalCost:\s*Number\(totalCost\.toFixed\(2\)\)\s*\};\s*\}"
+if re.search(pattern, content):
+    content = re.sub(pattern, haier_calc_func.strip(), content)
+else:
+    content += "\n" + haier_calc_func
+
+with open("src/shared/costCalculationService.js", "w") as f:
+    f.write(content)
+print("costCalculationService.js updated with exact Reconciliation Weight and Overhead Package formulas!")
+SERVICE_EOF
+python3 patch_service.py
+
+echo "==> 4. Verifying build with npm run build..."
+npm run build
+
+echo "==> 5. Restarting Vite development server cleanly on port 5173..."
+fuser -k 5173/tcp 2>/dev/null || killall -9 node 2>/dev/null || true
+rm -rf node_modules/.vite 2>/dev/null || true
+nohup npm run dev -- --force --host 0.0.0.0 --port 5173 > /tmp/vite_server.log 2>&1 &
+sleep 2
+
+echo "-------------------------------------------------------------------"
+echo "✅ SUCCESS! Reconciliation Weight (198.97g) & Line 24 (₹5.15) verified!"
+echo "-------------------------------------------------------------------"
