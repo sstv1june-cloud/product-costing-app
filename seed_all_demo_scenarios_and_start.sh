@@ -1,3 +1,8 @@
+#!/usr/bin/env bash
+set -e
+
+echo "==> 1. Writing rich multi-scenario demo dataset into masterStore.js..."
+cat << 'STORE_EOF' > src/shared/masterStore.js
 // ============================================================================
 // GLOBAL MASTER DATA STORE (Multi-Scenario Test Dataset & Dynamic Linking)
 // ============================================================================
@@ -684,3 +689,17 @@ export function addDayWiseSales(record) {
   notifyStore();
   return { success: true };
 }
+STORE_EOF
+
+echo "==> 2. Verifying complete production build with npm run build..."
+npm run build
+
+echo "==> 3. Restarting Vite development server cleanly on port 5173..."
+fuser -k 5173/tcp 2>/dev/null || killall -9 node 2>/dev/null || true
+rm -rf node_modules/.vite 2>/dev/null || true
+nohup npm run dev -- --force --host 0.0.0.0 --port 5173 > /tmp/vite_server.log 2>&1 &
+sleep 2
+
+echo "-------------------------------------------------------------------"
+echo "✅ SUCCESS! Complete multi-scenario demo dataset loaded and verified."
+echo "-------------------------------------------------------------------"

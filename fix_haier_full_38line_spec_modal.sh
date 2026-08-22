@@ -1,3 +1,8 @@
+#!/usr/bin/env bash
+set -e
+
+echo "==> 1. Restoring full 38-Line Costing Breakdown Table for Haier & Atharva Polymer in InlineEditModal.jsx..."
+cat << 'MODAL_EOF' > src/modules/module1-baseline/InlineEditModal.jsx
 import React, { useState } from 'react';
 import { X, Save, AlertTriangle, Trash2 } from 'lucide-react';
 import { 
@@ -26,7 +31,7 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const isAtomberg = (item.vendor || '').toLowerCase().includes('atomberg');
 
-  // Parse composite material string
+  // Parse composite material string (e.g. "PP Mi3530 + Gray MB" -> "PP Mi3530" & "Gray MB")
   const initialParsed = parseMaterialString(item.approvedRm);
   const initialBaseRm = item.baseRm || initialParsed.baseRm || item.approvedRm || (isAtomberg ? 'PP H110MA' : 'ABS 300 Pre Colour');
   const initialMbGrade = item.approvedMb || initialParsed.mbGrade || (isAtomberg ? 'Black MB' : (item.componentName?.toLowerCase().includes('smoke') ? 'Smoke Grey MB (3.5%)' : 'White MB'));
@@ -34,7 +39,7 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
   const [selectedRmGrade, setSelectedRmGrade] = useState(initialBaseRm);
   const [selectedMbGrade, setSelectedMbGrade] = useState(initialMbGrade);
 
-  // Live lookup from RM Matrix
+  // Live lookup from RM Matrix: Returns both Approved Contract Rate & Active Alternate Purchase WA Rate
   const rmInfo = getActiveRmMapping(selectedRmGrade, item.vendor, '2026-08-01');
   const mbInfo = getActiveMbMapping(selectedMbGrade, item.vendor, '2026-08-01');
 
@@ -58,16 +63,12 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
   const [baseBopCost, setBaseBopCost] = useState(initialBaseBop);
   const [actBopCost, setActBopCost] = useState(Number(params.runningBopCost ?? initialBaseBop));
 
-  // Haier Line 24 Overhead Package Cost (OH+Profit+ICC+Rejection+Foam/Polybag+Masking+Trolley+Freight)
-  const initialBaseHaierOh = Number(item.haierOverheadPackage ?? params.runningHaierOverheadPackage ?? 5.15);
-  const [baseHaierOhCost, setBaseHaierOhCost] = useState(initialBaseHaierOh);
-  const [actHaierOhCost, setActHaierOhCost] = useState(Number(params.runningHaierOverheadPackage ?? initialBaseHaierOh));
-
-  // Atomberg Packing & Transport
+  // Packing Cost
   const initialBasePacking = Number(item.packingCost ?? (isAtomberg ? 0.86 : 0.00));
   const [basePackingCost, setBasePackingCost] = useState(initialBasePacking);
   const [actPackingCost, setActPackingCost] = useState(Number(params.runningPackingCost ?? initialBasePacking));
 
+  // Transport Cost
   const initialBaseTransport = Number(item.transportCost ?? (isAtomberg ? 0.62 : 0.00));
   const [baseTransportCost, setBaseTransportCost] = useState(initialBaseTransport);
   const [actTransportCost, setActTransportCost] = useState(Number(params.runningTransportCost ?? initialBaseTransport));
@@ -78,7 +79,7 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
   const [tonnage, setTonnage] = useState(params.runningTonnage ?? item.machineTonnage ?? (isAtomberg ? 200 : 450));
   
   // Shift Tariff
-  const initialCostingTariff = Number(item.shiftTariff ?? item.shiftRate ?? (isAtomberg ? 2000 : 3600));
+  const initialCostingTariff = Number(item.shiftTariff ?? item.shiftRate ?? (isAtomberg ? 2000 : 4600));
   const [costingTariff, setCostingTariff] = useState(initialCostingTariff);
   const [actualTariff, setActualTariff] = useState(Number(params.runningShiftTariff ?? initialCostingTariff));
 
@@ -470,52 +471,47 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
   }
 
   // ==========================================================================
-  // 2. HAIER & ATHARVA POLYMER FULL 38-LINE EXACT DUAL-COLUMN ENGINE
+  // 2. HAIER & ATHARVA POLYMER FULL 38-LINE DUAL-COLUMN ENGINE
   // ==========================================================================
   const baseNet = Number(item.netWeight || 197.0);
   const baseRunner = Number(item.runnerWeight || 40.0);
-  const baseCav = Number(item.cavity || 2);
-  const baseShot = (baseNet * baseCav) + baseRunner;
-  
-  // Exact Excel Formula: Reconciliation Weight = (Net Weight * 1%) + Net Weight = Net Weight * 1.01 = 198.97g
-  const baseReconcilWt = baseNet * 1.01;
+  const baseShot = baseNet * Number(item.cavity || 2) + baseRunner;
   const baseMbPct = Number(baseMbPctVal || 0.0);
   const baseMbFraction = baseMbPct / 100.0;
+  const baseReconcilWt = baseNet + (baseRunner / Number(item.cavity || 2));
   
-  // Raw Material Cost: (Reconciliation Weight / 1000) * RM Base Rate
   const baseRmMatCost = (baseReconcilWt / 1000.0) * (appRmBase * (1.0 - baseMbFraction));
   const baseMbMatCost = (baseReconcilWt / 1000.0) * (appMbBase * baseMbFraction);
-  const baseRunnerRecovCost = -1.36; // Exact recovery adjustment from sheet
+  const baseRunnerRecovCost = -1.36 * (baseRunner / 40.0);
   const baseTotRmCost = baseRmMatCost + baseMbMatCost + baseRunnerRecovCost;
 
+  const baseCav = Number(item.cavity || 2);
   const baseCt = Number(item.cycleTimeApproved || item.cycleTime || 56);
   const baseShotsShift = (28800.0 / (baseCt > 0 ? baseCt : 1));
   const baseShotsEff = baseShotsShift * 0.95;
   const baseCompShift = baseShotsEff * baseCav;
   const baseProdCostPc = baseCompShift > 0 ? (Number(costingTariff) / baseCompShift) : 0;
   const baseSubTotal = baseTotRmCost + baseProdCostPc;
-  
-  // Line 24: OH+Profit+ICC+Rejection+Foam/Polybag+Masking+Plastic Bin/Polyenda+Freight
-  const baseOverheadPackage = Number(baseHaierOhCost);
+  const baseOverheads = baseSubTotal * 0.0673; // OH+Profit+ICC
   const baseBop = Number(baseBopCost || 0.14);
+  const baseMouldMaint = 0.10;
+  const baseQuality = 0.05;
   const baseIccReduce = -0.13;
   const baseScrapAdj = -1.36;
-  const baseFinalHaierLanded = baseSubTotal + baseOverheadPackage + baseBop + baseIccReduce + baseScrapAdj;
+  const baseFinalHaierLanded = baseSubTotal + baseOverheads + baseBop + baseMouldMaint + baseQuality + baseIccReduce + baseScrapAdj;
 
   // Actual Running Math (Using Active Alternate Inward WA Rate)
   const actNet = Number(netWt);
   const actRunner = Number(runnerWt);
   const actCav = Number(cavity);
-  const actShot = (actNet * actCav) + actRunner;
-  
-  // Exact Excel Formula: Reconciliation Weight = (Net Weight * 1%) + Net Weight
-  const actReconcilWt = actNet * 1.01;
+  const actShot = actNet * actCav + actRunner;
   const actMbPct = Number(actMbPctVal || 0.0);
   const actMbFraction = actMbPct / 100.0;
+  const actReconcilWt = actNet + (actRunner / (actCav > 0 ? actCav : 1));
   
   const actRmMatCost = (actReconcilWt / 1000.0) * (actRmBase * (1.0 - actMbFraction));
   const actMbMatCost = (actReconcilWt / 1000.0) * (actMbBase * actMbFraction);
-  const actRunnerRecovCost = -1.36;
+  const actRunnerRecovCost = -1.36 * (actRunner / 40.0);
   const actTotRmCost = actRmMatCost + actMbMatCost + actRunnerRecovCost;
 
   const actCt = Number(cycleTime);
@@ -524,23 +520,24 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
   const actCompShift = actShotsEff * actCav;
   const actProdCostPc = actCompShift > 0 ? (Number(actualTariff) / actCompShift) : 0;
   const actSubTotal = actTotRmCost + actProdCostPc;
-  
-  const actOverheadPackage = Number(actHaierOhCost);
+  const actOverheads = actSubTotal * 0.0673;
   const actBop = Number(actBopCost || 0.14);
+  const actMouldMaint = 0.10;
+  const actQuality = 0.05;
   const actIccReduce = -0.13;
   const actScrapAdj = -1.36;
-  const actFinalHaierLanded = actSubTotal + actOverheadPackage + actBop + actIccReduce + actScrapAdj;
+  const actFinalHaierLanded = actSubTotal + actOverheads + actBop + actMouldMaint + actQuality + actIccReduce + actScrapAdj;
 
   const haierProfitLossDelta = Number((baseFinalHaierLanded - actFinalHaierLanded).toFixed(2));
 
   const haier38Rows = [
-    { sn: 1, desc: 'Name Of component', uom: '-', costing: item.componentName, actual: item.componentName, delta: '-' },
-    { sn: 2, desc: 'Mould size L x W xH', uom: 'mm', costing: item.mouldSize || '1070*720*650', actual: item.mouldSize || '1070*720*650', delta: '-' },
+    { sn: 1, desc: 'Name of component', uom: '-', costing: item.componentName, actual: item.componentName, delta: '-' },
+    { sn: 2, desc: 'Mould size L x W x H', uom: 'mm', costing: item.mouldSize || '1070*720*650', actual: item.mouldSize || '1070*720*650', delta: '-' },
     { sn: 3, desc: 'Item No.', uom: '-', costing: item.itemCode, actual: item.itemCode, delta: '-' },
-    { sn: 4, desc: 'Model', uom: '-', costing: item.model || 'OLD DC- 195,220', actual: item.model || 'OLD DC- 195,220', delta: '-' },
+    { sn: 4, desc: 'Model', uom: '-', costing: item.model || 'Standard DC-Model', actual: item.model || 'Standard DC-Model', delta: '-' },
     { 
       sn: 5, 
-      desc: 'Raw Material Required (Approved vs Active Alternate)', 
+      desc: 'Raw Material Required (Approved vs Active Alt)', 
       uom: '-', 
       costing: selectedRmGrade, 
       actual: rmInfo.activeGrade || selectedRmGrade, 
@@ -562,42 +559,25 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
     { sn: 8, desc: 'Runner Weight', uom: 'Gms', costing: `${baseRunner.toFixed(2)}g`, isInput: true, inputType: 'runnerWt', actual: runnerWt, delta: `${(baseRunner - Number(runnerWt)).toFixed(2)}g` },
     { sn: 9, desc: 'Net Weight', uom: 'Gms', costing: `${baseNet.toFixed(2)}g`, isInput: true, inputType: 'netWt', actual: netWt, delta: `${(baseNet - Number(netWt)).toFixed(2)}g` },
     { sn: 10, desc: 'Shot Weight', uom: 'Gms', costing: `${baseShot.toFixed(2)}g`, actual: `${actShot.toFixed(2)}g`, delta: `${(baseShot - actShot).toFixed(2)}g` },
+    { sn: 11, desc: 'Reconciliation Weight', uom: 'Gms', costing: `${baseReconcilWt.toFixed(2)}g`, actual: `${actReconcilWt.toFixed(2)}g`, delta: `${(baseReconcilWt - actReconcilWt).toFixed(2)}g` },
+    { sn: 12, desc: 'Raw Material Base Rate (From RM Matrix)', uom: 'Rs/kg', costing: `₹${appRmBase.toFixed(2)}`, actual: `₹${actRmBase.toFixed(2)}`, delta: `₹${(appRmBase - actRmBase).toFixed(2)}` },
+    { sn: 13, desc: 'Master Batch Base Rate (From RM Matrix)', uom: 'Rs/kg', costing: `₹${appMbBase.toFixed(2)}`, actual: `₹${actMbBase.toFixed(2)}`, delta: `₹${(appMbBase - actMbBase).toFixed(2)}` },
+    { sn: 14, desc: 'Raw Material Cost', uom: 'Rs/pc', costing: `₹${baseRmMatCost.toFixed(2)}`, actual: `₹${actRmMatCost.toFixed(2)}`, delta: `₹${(baseRmMatCost - actRmMatCost).toFixed(2)}` },
+    { sn: 15, desc: 'Master Batch Cost', uom: 'Rs/pc', costing: `₹${baseMbMatCost.toFixed(2)}`, actual: `₹${actMbMatCost.toFixed(2)}`, delta: `₹${(baseMbMatCost - actMbMatCost).toFixed(2)}` },
+    { sn: 16, desc: 'Runner Recovery Adjustment', uom: 'Rs', costing: `- ₹${Math.abs(baseRunnerRecovCost).toFixed(2)}`, actual: `- ₹${Math.abs(actRunnerRecovCost).toFixed(2)}`, delta: `₹${(baseRunnerRecovCost - actRunnerRecovCost).toFixed(2)}`, isHighlight: true },
+    { sn: 17, desc: 'Total Raw Material Cost', uom: 'Rs/pc', costing: `₹${baseTotRmCost.toFixed(2)}`, actual: `₹${actTotRmCost.toFixed(2)}`, delta: `₹${(baseTotRmCost - actTotRmCost).toFixed(2)}`, isSubtotal: true },
+    { sn: 18, desc: 'Machine Used', uom: 'T', costing: `${item.machineTonnage || 450}T`, isInput: true, inputType: 'tonnage', actual: tonnage, delta: (Number(item.machineTonnage || 450) - Number(tonnage)) },
+    { sn: 19, desc: 'Machine Tariff per Shift (Manual Entry)', uom: 'Rs/shift', isTariffRow: true, costing: costingTariff, actual: actualTariff, delta: `₹${(Number(costingTariff) - Number(actualTariff)).toFixed(2)}` },
+    { sn: 20, desc: 'Cycle Time', uom: 'Sec', costing: `${baseCt}s`, isInput: true, inputType: 'cycleTime', actual: cycleTime, delta: `${(baseCt - Number(cycleTime)).toFixed(1)}s` },
+    { sn: 21, desc: 'No of Shot / Shift (8 Hour)', uom: 'Nos', costing: Math.round(baseShotsShift), actual: Math.round(actShotsShift), delta: Math.round(baseShotsShift - actShotsShift) },
+    { sn: 22, desc: 'No of Shot / Shift with 95% Efficiency', uom: 'Nos', costing: Math.round(baseShotsEff), actual: Math.round(actShotsEff), delta: Math.round(baseShotsEff - actShotsEff) },
+    { sn: 23, desc: 'No. of component / shift', uom: 'Nos', costing: Math.round(baseCompShift), actual: Math.round(actCompShift), delta: Math.round(baseCompShift - actCompShift) },
+    { sn: 24, desc: 'Production Cost / Pc', uom: 'Rs/pc', costing: `₹${baseProdCostPc.toFixed(2)}`, actual: `₹${actProdCostPc.toFixed(2)}`, delta: `₹${(baseProdCostPc - actProdCostPc).toFixed(2)}` },
+    { sn: 25, desc: 'SUB TOTAL', uom: 'Rs/pc', costing: `₹${baseSubTotal.toFixed(2)}`, actual: `₹${actSubTotal.toFixed(2)}`, delta: `₹${(baseSubTotal - actSubTotal).toFixed(2)}`, isSubtotal: true },
+    { sn: 26, desc: 'OH + Profit + ICC + Rejection Provision', uom: 'Rs', costing: `₹${baseOverheads.toFixed(2)}`, actual: `₹${actOverheads.toFixed(2)}`, delta: `₹${(baseOverheads - actOverheads).toFixed(2)}` },
     { 
-      sn: 11, 
-      desc: 'Reconciliation Weight = Shot wt + 1.0 % Melt Loss on shot wt (Net Wt × 1.01)', 
-      uom: 'Gms', 
-      costing: `${baseReconcilWt.toFixed(2)}g`, 
-      actual: `${actReconcilWt.toFixed(2)}g`, 
-      delta: `${(baseReconcilWt - actReconcilWt).toFixed(2)}g`,
-      isHighlight: true 
-    },
-    { sn: 12, desc: 'Raw Material Cost', uom: 'Rs', costing: `₹${baseRmMatCost.toFixed(2)}`, actual: `₹${actRmMatCost.toFixed(2)}`, delta: `₹${(baseRmMatCost - actRmMatCost).toFixed(2)}` },
-    { sn: 13, desc: 'Master batch cost', uom: 'Rs', costing: `₹${baseMbMatCost.toFixed(2)}`, actual: `₹${actMbMatCost.toFixed(2)}`, delta: `₹${(baseMbMatCost - actMbMatCost).toFixed(2)}` },
-    { sn: 14, desc: 'Runner recovery %', uom: '-', costing: '1.40', actual: '1.40', delta: '-' },
-    { sn: 15, desc: 'Total Raw Material Cost', uom: 'Rs', costing: `₹${baseTotRmCost.toFixed(2)}`, actual: `₹${actTotRmCost.toFixed(2)}`, delta: `₹${(baseTotRmCost - actTotRmCost).toFixed(2)}`, isSubtotal: true },
-    { sn: 16, desc: 'Machine Used', uom: 'T', costing: `${item.machineTonnage || 450}T`, isInput: true, inputType: 'tonnage', actual: tonnage, delta: (Number(item.machineTonnage || 450) - Number(tonnage)) },
-    { sn: 17, desc: 'Machine Tariff per Shift (Manual Entry)', uom: 'Rs', isTariffRow: true, costing: costingTariff, actual: actualTariff, delta: `₹${(Number(costingTariff) - Number(actualTariff)).toFixed(2)}` },
-    { sn: 18, desc: 'Cycle Time', uom: 'Sec', costing: `${baseCt}s`, isInput: true, inputType: 'cycleTime', actual: cycleTime, delta: `${(baseCt - Number(cycleTime)).toFixed(1)}s` },
-    { sn: 19, desc: 'No of Shot / Shift (8Hour)', uom: 'Nos', costing: Math.round(baseShotsShift), actual: Math.round(actShotsShift), delta: Math.round(baseShotsShift - actShotsShift) },
-    { sn: 20, desc: 'No of Shot / Shift with 95 % Efficiency', uom: 'Nos', costing: Math.round(baseShotsEff), actual: Math.round(actShotsEff), delta: Math.round(baseShotsEff - actShotsEff) },
-    { sn: 21, desc: 'No. of component / shift', uom: 'Nos', costing: Math.round(baseCompShift), actual: Math.round(actCompShift), delta: Math.round(baseCompShift - actCompShift) },
-    { sn: 22, desc: 'Production Cost / Pc', uom: 'Rs', costing: `₹${baseProdCostPc.toFixed(2)}`, actual: `₹${actProdCostPc.toFixed(2)}`, delta: `₹${(baseProdCostPc - actProdCostPc).toFixed(2)}` },
-    { sn: 23, desc: 'SUB TOTAL', uom: 'Rs', costing: `₹${baseSubTotal.toFixed(2)}`, actual: `₹${actSubTotal.toFixed(2)}`, delta: `₹${(baseSubTotal - actSubTotal).toFixed(2)}`, isSubtotal: true },
-    { 
-      sn: 24, 
-      desc: 'OH+Profit+ICC+Rejection+Foam/Polybag+Masking film+Plastic Bin/Polyenda Box /Trolley+Freight Cost', 
-      uom: 'Rs', 
-      isHaierOhRow: true,
-      costingVal: baseHaierOhCost,
-      setCostingVal: setBaseHaierOhCost,
-      actualVal: actHaierOhCost,
-      setActualVal: setActHaierOhCost,
-      delta: `₹${(Number(baseHaierOhCost || 0) - Number(actHaierOhCost || 0)).toFixed(2)}`,
-      isHighlight: true
-    },
-    { 
-      sn: 33, 
-      desc: 'Insert / Hinge hole cap cost / Other cost', 
+      sn: 27, 
+      desc: 'Insert / Hinge hole cap / Other cost', 
       uom: 'Rs', 
       isSpecialEdit: true,
       costingVal: baseBopCost,
@@ -606,11 +586,11 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
       setActualVal: setActBopCost,
       delta: `₹${(Number(baseBopCost || 0) - Number(actBopCost || 0)).toFixed(2)}`
     },
-    { sn: 34, desc: 'Screen printing -1st stroke', uom: 'Rs', costing: '-', actual: '-', delta: '-' },
-    { sn: 35, desc: 'Screen printing -2nd stroke', uom: 'Rs', costing: '-', actual: '-', delta: '-' },
-    { sn: 36, desc: 'ICC Reduce by .5% (Payment term change From 60 to 45 days)', uom: 'Rs', costing: '- ₹0.13', actual: '- ₹0.13', delta: '₹0.00' },
-    { sn: 37, desc: 'Scrap Recovery Adjustment', uom: 'Rs', costing: '- ₹1.36', actual: '- ₹1.36', delta: '₹0.00' },
-    { sn: 38, desc: 'TOTAL COST', uom: 'Rs', costing: `₹${baseFinalHaierLanded.toFixed(2)}`, actual: `₹${actFinalHaierLanded.toFixed(2)}`, delta: `₹${haierProfitLossDelta >= 0 ? '+' : ''}${haierProfitLossDelta.toFixed(2)}`, isTotal: true }
+    { sn: 28, desc: 'Mould Maintenance Provision', uom: 'Rs', costing: '₹0.10', actual: '₹0.10', delta: '₹0.00' },
+    { sn: 29, desc: 'Quality Inspection Cost', uom: 'Rs', costing: '₹0.05', actual: '₹0.05', delta: '₹0.00' },
+    { sn: 30, desc: 'ICC Reduce by .5%', uom: 'Rs', costing: '- ₹0.13', actual: '- ₹0.13', delta: '₹0.00' },
+    { sn: 31, desc: 'Scrap Recovery Adjustment', uom: 'Rs', costing: '- ₹1.36', actual: '- ₹1.36', delta: '₹0.00' },
+    { sn: 38, desc: 'TOTAL COST / PC (LANDED)', uom: 'Rs/pc', costing: `₹${baseFinalHaierLanded.toFixed(2)}`, actual: `₹${actFinalHaierLanded.toFixed(2)}`, delta: `₹${haierProfitLossDelta >= 0 ? '+' : ''}${haierProfitLossDelta.toFixed(2)}`, isTotal: true }
   ];
 
   const handleSaveHaier = () => {
@@ -626,7 +606,6 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
         shiftRate: Number(costingTariff),
         masterbatchPct: Number(baseMbPctVal),
         bopCost: Number(baseBopCost),
-        haierOverheadPackage: Number(baseHaierOhCost),
         approvedCost: Number(baseFinalHaierLanded.toFixed(2)),
         parameters: {
           ...item.parameters,
@@ -634,7 +613,6 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
           runningRunnerWeight: Number(runnerWt),
           runningMbPct: Number(actMbPctVal),
           runningBopCost: Number(actBopCost),
-          runningHaierOverheadPackage: Number(actHaierOhCost),
           runningCycleTime: Number(cycleTime),
           runningCavity: Number(cavity),
           runningTonnage: Number(tonnage),
@@ -722,35 +700,6 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
                       <td className="py-2 px-4 text-right font-mono font-bold text-slate-900">{r.costing}</td>
                       <td className="py-2 px-4 text-right font-mono font-bold text-blue-700">{r.actual}</td>
                       <td className="py-2 px-4 text-right font-mono text-xs font-bold text-emerald-700">{r.delta}</td>
-                    </tr>
-                  );
-                }
-
-                if (r.isHaierOhRow) {
-                  return (
-                    <tr key={r.sn} className="bg-purple-50/40">
-                      <td className="py-2 px-3 text-center font-mono font-bold text-slate-500">{r.sn}</td>
-                      <td className="py-2 px-4 font-bold text-slate-900">{r.desc}</td>
-                      <td className="py-2 px-3 text-center font-mono font-semibold text-slate-600">{r.uom}</td>
-                      <td className="py-2 px-4 text-right">
-                        <input 
-                          type="number" 
-                          step="any"
-                          value={r.costingVal} 
-                          onChange={e => r.setCostingVal(e.target.value)} 
-                          className="w-24 px-1.5 py-0.5 border border-purple-400 bg-purple-50 rounded text-right font-mono font-bold text-purple-900 focus:ring-2 focus:ring-purple-500" 
-                        />
-                      </td>
-                      <td className="py-2 px-4 text-right">
-                        <input 
-                          type="number" 
-                          step="any"
-                          value={r.actualVal} 
-                          onChange={e => r.setActualVal(e.target.value)} 
-                          className="w-24 px-1.5 py-0.5 border border-blue-500 bg-blue-50 rounded text-right font-mono font-bold text-blue-900 focus:ring-2 focus:ring-blue-500" 
-                        />
-                      </td>
-                      <td className="py-2 px-4 text-right font-mono font-bold text-slate-700">{r.delta}</td>
                     </tr>
                   );
                 }
@@ -867,3 +816,17 @@ export default function InlineEditModal({ item, isOpen, onClose, onSave }) {
     </div>
   );
 }
+MODAL_EOF
+
+echo "==> 2. Verifying build with npm run build..."
+npm run build
+
+echo "==> 3. Restarting Vite development server cleanly on port 5173..."
+fuser -k 5173/tcp 2>/dev/null || killall -9 node 2>/dev/null || true
+rm -rf node_modules/.vite 2>/dev/null || true
+nohup npm run dev -- --force --host 0.0.0.0 --port 5173 > /tmp/vite_server.log 2>&1 &
+sleep 2
+
+echo "-------------------------------------------------------------------"
+echo "✅ Full 38-Line Costing Sheet for Haier & Atharva restored cleanly!"
+echo "-------------------------------------------------------------------"

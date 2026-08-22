@@ -1,3 +1,8 @@
+#!/usr/bin/env bash
+set -e
+
+echo "==> 1. Writing enhanced RMPriceMatrixPage.jsx with Date parsing, Staging modals, and editable Approved Price..."
+cat << 'PAGE_EOF' > src/modules/module2-rm-matrix/RMPriceMatrixPage.jsx
 import React, { useState, useEffect } from 'react';
 import { 
   Plus, 
@@ -20,7 +25,8 @@ import {
   History,
   X,
   ShieldCheck,
-  ShieldAlert
+  ShieldAlert,
+  Eye
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { 
@@ -33,14 +39,14 @@ import {
   toggleMatrixLock,
   saveVendorPeriodSchedule,
   addOrUpdateVendorMaterial,
-  deleteVendorMaterial,
-  computeGradeWeightedAverage
+  deleteVendorMaterial
 } from '../../shared/masterStore';
 
-// Robust Date Parser
+// Robust Date Parser (Handles Excel serial integers like 46245, DD-MM-YY, DD-MM-YYYY, YYYY-MM-DD)
 function parseExcelDate(val) {
   if (!val) return new Date().toISOString().split('T')[0];
 
+  // 1. If numeric Excel serial date (e.g. 46245)
   if (typeof val === 'number' || (!isNaN(val) && !val.toString().includes('-') && !val.toString().includes('/'))) {
     const serial = Number(val);
     const utcDays = Math.floor(serial - 25569);
@@ -53,6 +59,8 @@ function parseExcelDate(val) {
   }
 
   const str = val.toString().trim();
+
+  // 2. Handle DD-MM-YYYY or DD-MM-YY
   if (str.includes('-')) {
     const parts = str.split('-');
     if (parts.length === 3) {
@@ -69,6 +77,7 @@ function parseExcelDate(val) {
     }
   }
 
+  // 3. Handle DD/MM/YYYY or MM/DD/YYYY
   if (str.includes('/')) {
     const parts = str.split('/');
     if (parts.length === 3) {
@@ -85,8 +94,8 @@ function parseExcelDate(val) {
 
 export default function RMPriceMatrixPage() {
   const [storeState, setStoreState] = useState(globalStore);
-  const [selectedVendor, setSelectedVendor] = useState('Atomberg Technologies');
-  const [activeSubTab, setActiveSubTab] = useState('matrix');
+  const [selectedVendor, setSelectedVendor] = useState('Haier Appliances');
+  const [activeSubTab, setActiveSubTab] = useState('matrix'); // 'matrix' | 'purchases' | 'sales' | 'audit'
   const [searchQuery, setSearchQuery] = useState('');
   const [periodStart, setPeriodStart] = useState('2026-08-01');
   const [periodEnd, setPeriodEnd] = useState('2026-08-31');
@@ -97,7 +106,7 @@ export default function RMPriceMatrixPage() {
   const [newMatCode, setNewMatCode] = useState('');
   const [newMatApprovedPrice, setNewMatApprovedPrice] = useState('');
 
-  // Staging Modals
+  // Staging Modals State
   const [showPurchaseStagingModal, setShowPurchaseStagingModal] = useState(false);
   const [stagedPurchases, setStagedPurchases] = useState([]);
 
@@ -115,7 +124,7 @@ export default function RMPriceMatrixPage() {
 
   // Single Sales Form
   const [newSaleDate, setNewSaleDate] = useState('2026-08-15');
-  const [newSaleVendor, setNewSaleVendor] = useState('Atomberg Technologies');
+  const [newSaleVendor, setNewSaleVendor] = useState('Haier Appliances');
   const [newSaleItemCode, setNewSaleItemCode] = useState('');
   const [newSaleInvoice, setNewSaleInvoice] = useState('');
   const [newSaleCompName, setNewSaleCompName] = useState('');
@@ -134,8 +143,8 @@ export default function RMPriceMatrixPage() {
   const effectiveMatrixLock = isGlobalLocked || isMatrixLocked;
 
   const vendors = storeState.vendors || [
-    { vendorId: 'Atomberg Technologies', vendorName: 'Atomberg Technologies' },
     { vendorId: 'Haier Appliances', vendorName: 'Haier Appliances' },
+    { vendorId: 'Atomberg Technologies', vendorName: 'Atomberg Technologies' },
     { vendorId: 'Atharva Polymer', vendorName: 'Atharva Polymer (Haier)' }
   ];
 
@@ -160,13 +169,7 @@ export default function RMPriceMatrixPage() {
     l.vendor === 'ALL'
   );
 
-  // Dynamic dropdown list collecting EVERY distinct grade & item code from purchases
-  const purchaseGradeOptions = Array.from(new Set(
-    allPurchases.flatMap(p => [
-      (p.grade || '').toString().trim(),
-      (p.itemCode || '').toString().trim()
-    ]).filter(Boolean)
-  ));
+  const purchaseGradeOptions = Array.from(new Set(allPurchases.map(p => p.grade || p.itemCode).filter(Boolean)));
 
   // Add Material to Matrix
   const handleAddNewMaterial = (e) => {
@@ -260,7 +263,7 @@ export default function RMPriceMatrixPage() {
     setNewSalePrice('');
   };
 
-  // Purchase Staging & Import
+  // Parse Excel for Purchase Staging
   const handlePurchaseFileUpload = (e) => {
     if (isGlobalLocked) {
       alert("Page is Locked! Please unlock first.");
@@ -289,6 +292,7 @@ export default function RMPriceMatrixPage() {
           const rate = Number(row['Purchase Rate (₹/kg)'] || row['Rate'] || row['Price'] || 0);
           const rawDate = row['Date (DD-MM-YY)'] || row['Date'] || newPurchaseDate;
 
+          // Skip empty or summary rows
           if (!supplier || !invoiceNo || qty <= 0 || rate <= 0) return;
           if (supplier.toString().toLowerCase().includes('total') || supplier.toString().toLowerCase().includes('count')) return;
 
@@ -329,8 +333,11 @@ export default function RMPriceMatrixPage() {
     e.target.value = null;
   };
 
+  // Confirm Purchase Import
   const confirmPurchaseImport = () => {
     let added = 0;
+    let skipped = 0;
+
     stagedPurchases.forEach(p => {
       if (!p.isDuplicate) {
         addDayWisePurchase({
@@ -343,15 +350,17 @@ export default function RMPriceMatrixPage() {
           rate: p.rate
         });
         added++;
+      } else {
+        skipped++;
       }
     });
 
     setShowPurchaseStagingModal(false);
     setStagedPurchases([]);
-    alert(`Successfully imported ${added} purchase records! All newly added grades are available in the Alternate dropdown.`);
+    alert(`Purchase Import Complete:\n• Successfully Added: ${added} records\n• Duplicates Skipped: ${skipped} records`);
   };
 
-  // Sales Staging & Import
+  // Parse Excel for Sales Staging
   const handleSalesFileUpload = (e) => {
     if (isGlobalLocked) {
       alert("Page is Locked! Please unlock first.");
@@ -380,6 +389,7 @@ export default function RMPriceMatrixPage() {
           const sellingPrice = Number(row['Selling Price (₹)'] || row['Price'] || 0);
           const rawDate = row['Date (DD-MM-YY)'] || row['Date'] || newSaleDate;
 
+          // Skip total or count summary rows
           if (!vendor || !invoiceNo || !itemCode || qty <= 0) return;
           if (vendor.toString().toLowerCase().includes('total') || compName.toString().toLowerCase().includes('invoice count')) return;
 
@@ -420,8 +430,11 @@ export default function RMPriceMatrixPage() {
     e.target.value = null;
   };
 
+  // Confirm Sales Import
   const confirmSalesImport = () => {
     let added = 0;
+    let skipped = 0;
+
     stagedSales.forEach(s => {
       if (!s.isDuplicate) {
         addDayWiseSales({
@@ -434,12 +447,14 @@ export default function RMPriceMatrixPage() {
           sellingPrice: s.sellingPrice
         });
         added++;
+      } else {
+        skipped++;
       }
     });
 
     setShowSalesStagingModal(false);
     setStagedSales([]);
-    alert(`Successfully imported ${added} sales dispatch records!`);
+    alert(`Sales Import Complete:\n• Successfully Added: ${added} records\n• Duplicates Skipped: ${skipped} records`);
   };
 
   return (
@@ -571,7 +586,7 @@ export default function RMPriceMatrixPage() {
         </div>
       </div>
 
-      {/* 1. RM PRICE MATRIX TABLE */}
+      {/* 1. RM PRICE MATRIX TABLE (WITH INLINE EDITABLE APPROVED PRICE) */}
       {activeSubTab === 'matrix' && (
         <div className="bg-white rounded-2xl border border-slate-200 overflow-x-auto shadow-sm">
           <table className="w-full text-left border-collapse text-xs min-w-[1000px]">
@@ -630,17 +645,10 @@ export default function RMPriceMatrixPage() {
                           <select
                             disabled={effectiveMatrixLock}
                             value={mat.alt1Code || mat.approvedCode}
-                            onChange={e => {
-                              const chosen = e.target.value;
-                              const wa = computeGradeWeightedAverage(chosen) || (mat.approvedPrice || 0);
-                              updateRmMappingRow(mat.id, { 
-                                alt1Code: chosen,
-                                alt1Price: wa
-                              });
-                            }}
+                            onChange={e => updateRmMappingRow(mat.id, { alt1Code: e.target.value })}
                             className="w-full px-2 py-1 border border-slate-300 rounded-lg text-xs bg-white font-medium disabled:bg-slate-100"
                           >
-                            <option value={mat.approvedCode}>{mat.approvedCode} (Contract Default)</option>
+                            <option value={mat.approvedCode}>{mat.approvedCode} (Prime Inward)</option>
                             {purchaseGradeOptions.filter(g => g !== mat.approvedCode).map(g => (
                               <option key={g} value={g}>{g}</option>
                             ))}
@@ -666,7 +674,7 @@ export default function RMPriceMatrixPage() {
                       </td>
 
                       <td className="py-3 px-4 text-center font-mono font-bold text-blue-700 text-xs">
-                        ₹{Number(mat.alt1Price !== undefined ? mat.alt1Price : mat.approvedPrice).toFixed(2)}
+                        ₹{Number(mat.alt1Price || mat.approvedPrice || 0).toFixed(2)}
                       </td>
 
                       {/* Alternate 2 */}
@@ -675,14 +683,7 @@ export default function RMPriceMatrixPage() {
                           <select
                             disabled={effectiveMatrixLock}
                             value={mat.alt2Code || ''}
-                            onChange={e => {
-                              const chosen = e.target.value;
-                              const wa = computeGradeWeightedAverage(chosen);
-                              updateRmMappingRow(mat.id, { 
-                                alt2Code: chosen,
-                                alt2Price: wa
-                              });
-                            }}
+                            onChange={e => updateRmMappingRow(mat.id, { alt2Code: e.target.value })}
                             className="w-full px-2 py-1 border border-slate-300 rounded-lg text-xs bg-white font-medium disabled:bg-slate-100"
                           >
                             <option value="">Select Alternate Lot 2...</option>
@@ -720,14 +721,7 @@ export default function RMPriceMatrixPage() {
                           <select
                             disabled={effectiveMatrixLock}
                             value={mat.alt3Code || ''}
-                            onChange={e => {
-                              const chosen = e.target.value;
-                              const wa = computeGradeWeightedAverage(chosen);
-                              updateRmMappingRow(mat.id, { 
-                                alt3Code: chosen,
-                                alt3Price: wa
-                              });
-                            }}
+                            onChange={e => updateRmMappingRow(mat.id, { alt3Code: e.target.value })}
                             className="w-full px-2 py-1 border border-slate-300 rounded-lg text-xs bg-white font-medium disabled:bg-slate-100"
                           >
                             <option value="">Select Alternate Lot 3...</option>
@@ -929,7 +923,72 @@ export default function RMPriceMatrixPage() {
         </div>
       )}
 
-      {/* PURCHASE STAGING MODAL */}
+      {/* ========================================================================= */}
+      {/* VERIFICATION & STAGING MODAL: SALES IMPORT                                 */}
+      {/* ========================================================================= */}
+      {showSalesStagingModal && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-3 z-50 text-xs font-sans">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full p-5 space-y-4 border border-slate-300 max-h-[92vh] flex flex-col justify-between">
+            <div className="flex justify-between items-center border-b pb-3">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Verify & Stage Sales Import ({stagedSales.length} Rows)
+                </h3>
+                <p className="text-[11px] text-slate-500">Dates are normalized to ISO format. Duplicate records (Vendor + Invoice + Item Code) are marked in red.</p>
+              </div>
+              <button onClick={() => setShowSalesStagingModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X className="w-5 h-5" /></button>
+            </div>
+
+            <div className="border rounded-xl overflow-x-auto max-h-[55vh] overflow-y-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead className="bg-slate-100 text-slate-700 uppercase font-bold text-[10px] sticky top-0">
+                  <tr>
+                    <th className="py-2 px-3">Date (ISO)</th>
+                    <th className="py-2 px-3">Vendor</th>
+                    <th className="py-2 px-3">Item Code</th>
+                    <th className="py-2 px-3">Invoice #</th>
+                    <th className="py-2 px-4">Component Name</th>
+                    <th className="py-2 px-4 text-right">Qty</th>
+                    <th className="py-2 px-4 text-right">Price</th>
+                    <th className="py-2 px-3 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {stagedSales.map((s, idx) => (
+                    <tr key={idx} className={s.isDuplicate ? 'bg-rose-50/60' : 'hover:bg-slate-50'}>
+                      <td className="py-2 px-3 font-mono font-bold text-slate-900">{s.date}</td>
+                      <td className="py-2 px-3 font-medium text-slate-800">{s.vendor}</td>
+                      <td className="py-2 px-3 font-mono font-bold text-blue-700">{s.itemCode}</td>
+                      <td className="py-2 px-3 font-mono text-slate-700">{s.invoiceNo}</td>
+                      <td className="py-2 px-4 text-slate-800">{s.componentName}</td>
+                      <td className="py-2 px-4 text-right font-mono font-bold">{s.qty?.toLocaleString()}</td>
+                      <td className="py-2 px-4 text-right font-mono">₹{s.sellingPrice}</td>
+                      <td className="py-2 px-3 text-center">
+                        {s.isDuplicate ? (
+                          <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-rose-100 text-rose-700">Duplicate (Skip)</span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-emerald-100 text-emerald-700">Ready</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex justify-between items-center pt-2 border-t">
+              <button onClick={() => setShowSalesStagingModal(false)} className="px-4 py-2 border rounded-xl font-bold hover:bg-slate-50">Cancel</button>
+              <button onClick={confirmSalesImport} className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl flex items-center gap-1.5 shadow-sm">
+                <CheckCircle2 className="w-4 h-4" /> Confirm & Import {stagedSales.filter(s => !s.isDuplicate).length} Records
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* VERIFICATION & STAGING MODAL: PURCHASE IMPORT                              */}
+      {/* ========================================================================= */}
       {showPurchaseStagingModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-3 z-50 text-xs font-sans">
           <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full p-5 space-y-4 border border-slate-300 max-h-[92vh] flex flex-col justify-between">
@@ -984,67 +1043,6 @@ export default function RMPriceMatrixPage() {
               <button onClick={() => setShowPurchaseStagingModal(false)} className="px-4 py-2 border rounded-xl font-bold hover:bg-slate-50">Cancel</button>
               <button onClick={confirmPurchaseImport} className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl flex items-center gap-1.5 shadow-sm">
                 <CheckCircle2 className="w-4 h-4" /> Confirm & Import {stagedPurchases.filter(p => !p.isDuplicate).length} Records
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* SALES STAGING MODAL */}
-      {showSalesStagingModal && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-3 z-50 text-xs font-sans">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full p-5 space-y-4 border border-slate-300 max-h-[92vh] flex flex-col justify-between">
-            <div className="flex justify-between items-center border-b pb-3">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Verify & Stage Sales Import ({stagedSales.length} Rows)
-                </h3>
-                <p className="text-[11px] text-slate-500">Dates normalized to ISO. Duplicate records (Vendor + Invoice + Item Code) are marked in red.</p>
-              </div>
-              <button onClick={() => setShowSalesStagingModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X className="w-5 h-5" /></button>
-            </div>
-
-            <div className="border rounded-xl overflow-x-auto max-h-[55vh] overflow-y-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead className="bg-slate-100 text-slate-700 uppercase font-bold text-[10px] sticky top-0">
-                  <tr>
-                    <th className="py-2 px-3">Date (ISO)</th>
-                    <th className="py-2 px-3">Vendor</th>
-                    <th className="py-2 px-3">Item Code</th>
-                    <th className="py-2 px-3">Invoice #</th>
-                    <th className="py-2 px-4">Component Name</th>
-                    <th className="py-2 px-4 text-right">Qty</th>
-                    <th className="py-2 px-4 text-right">Price</th>
-                    <th className="py-2 px-3 text-center">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {stagedSales.map((s, idx) => (
-                    <tr key={idx} className={s.isDuplicate ? 'bg-rose-50/60' : 'hover:bg-slate-50'}>
-                      <td className="py-2 px-3 font-mono font-bold text-slate-900">{s.date}</td>
-                      <td className="py-2 px-3 font-medium text-slate-800">{s.vendor}</td>
-                      <td className="py-2 px-3 font-mono font-bold text-blue-700">{s.itemCode}</td>
-                      <td className="py-2 px-3 font-mono text-slate-700">{s.invoiceNo}</td>
-                      <td className="py-2 px-4 text-slate-800">{s.componentName}</td>
-                      <td className="py-2 px-4 text-right font-mono font-bold">{s.qty?.toLocaleString()}</td>
-                      <td className="py-2 px-4 text-right font-mono">₹{s.sellingPrice}</td>
-                      <td className="py-2 px-3 text-center">
-                        {s.isDuplicate ? (
-                          <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-rose-100 text-rose-700">Duplicate (Skip)</span>
-                        ) : (
-                          <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-emerald-100 text-emerald-700">Ready</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex justify-between items-center pt-2 border-t">
-              <button onClick={() => setShowSalesStagingModal(false)} className="px-4 py-2 border rounded-xl font-bold hover:bg-slate-50">Cancel</button>
-              <button onClick={confirmSalesImport} className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl flex items-center gap-1.5 shadow-sm">
-                <CheckCircle2 className="w-4 h-4" /> Confirm & Import {stagedSales.filter(s => !s.isDuplicate).length} Records
               </button>
             </div>
           </div>
@@ -1116,3 +1114,17 @@ export default function RMPriceMatrixPage() {
     </div>
   );
 }
+PAGE_EOF
+
+echo "==> 2. Verifying build with npm run build..."
+npm run build
+
+echo "==> 3. Restarting Vite development server cleanly on port 5173..."
+fuser -k 5173/tcp 2>/dev/null || killall -9 node 2>/dev/null || true
+rm -rf node_modules/.vite 2>/dev/null || true
+nohup npm run dev -- --force --host 0.0.0.0 --port 5173 > /tmp/vite_server.log 2>&1 &
+sleep 2
+
+echo "-------------------------------------------------------------------"
+echo "✅ Date Normalizer, Staging Modals & Editable Approved Price live!"
+echo "-------------------------------------------------------------------"
