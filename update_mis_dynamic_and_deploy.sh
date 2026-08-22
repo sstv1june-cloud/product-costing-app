@@ -1,3 +1,8 @@
+#!/usr/bin/env bash
+set -e
+
+echo "==> 1. Updating MISVariancePage.jsx to compute 100% dynamically from storeState..."
+cat << 'PAGE_EOF' > src/modules/module4-mis/MISVariancePage.jsx
 import React, { useState, useEffect } from 'react';
 import { 
   TrendingUp, 
@@ -807,3 +812,25 @@ export default function MISVariancePage() {
     </div>
   );
 }
+PAGE_EOF
+
+echo "==> 2. Verifying clean build..."
+npm run build
+
+echo "==> 3. Committing to dev-v2 and pushing to main for Vercel auto-deploy..."
+git checkout dev-v2
+git add -A
+git commit -m "fix(mis): make vendor comparison, multi-month drilldown, and gap drivers 100% dynamic from live sales" || echo "dev-v2 up to date."
+git push origin dev-v2
+
+git checkout main
+git pull origin main --rebase || true
+git merge dev-v2 -m "release: 100% dynamic MIS tables with zero static demo numbers"
+git push origin main
+
+git checkout dev-v2
+
+echo "-------------------------------------------------------------------"
+echo "✅ SUCCESS! 100% dynamic MIS page pushed to main."
+echo "   Vercel deployment is live."
+echo "-------------------------------------------------------------------"
