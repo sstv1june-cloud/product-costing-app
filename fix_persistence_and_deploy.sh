@@ -1,3 +1,8 @@
+#!/usr/bin/env bash
+set -e
+
+echo "==> 1. Updating masterStore.js with full localStorage persistence across browser refresh..."
+cat << 'STORE_EOF' > src/shared/masterStore.js
 // ============================================================================
 // GLOBAL MASTER DATA STORE (With Persistent Storage Across Browser Refresh)
 // ============================================================================
@@ -455,3 +460,24 @@ export function addDayWiseSales(record) {
   notifyStore();
   return { success: true };
 }
+STORE_EOF
+
+echo "==> 2. Verifying build with npm run build..."
+npm run build
+
+echo "==> 3. Committing to dev-v2 and pushing to main for Vercel auto-deployment..."
+git checkout dev-v2
+git add -A
+git commit -m "feat(store): enable persistent localStorage auto-sync across all browser refreshes" || echo "dev-v2 up to date."
+git push origin dev-v2
+
+git checkout main
+git pull origin main --rebase || true
+git merge dev-v2 -m "release: full localStorage persistence for audit logs, matrix, and transactions"
+git push origin main
+
+git checkout dev-v2
+
+echo "-------------------------------------------------------------------"
+echo "✅ SUCCESS! Persistence engine live and deployed to Vercel."
+echo "-------------------------------------------------------------------"
