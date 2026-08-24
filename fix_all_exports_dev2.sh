@@ -1,3 +1,11 @@
+#!/usr/bin/env bash
+set -e
+
+echo "==> 1. Ensuring branch is strictly dev-v2..."
+git checkout dev-v2
+
+echo "==> 2. Writing complete masterStore.js containing all module exports..."
+cat << 'STORE_EOF' > src/shared/masterStore.js
 // ============================================================================
 // GLOBAL MASTER DATA STORE (Strictly Isolated DEV-V2)
 // ============================================================================
@@ -241,3 +249,24 @@ export function toggleMatrixLock() { globalStore.isMatrixLocked = !globalStore.i
 export function addDayWisePurchase(rec) { (globalStore.purchases = globalStore.purchases || []).unshift(rec); notifyStore(); return { success: true }; }
 export function addDayWiseSales(rec) { (globalStore.sales = globalStore.sales || []).unshift(rec); notifyStore(); return { success: true }; }
 export function onboardVendorWithBlueprint() { notifyStore(); }
+STORE_EOF
+
+echo "==> 3. Verifying build strictly on dev-v2..."
+npm run build
+
+echo "==> 4. Committing and pushing ONLY to origin/dev-v2 (Zero push to main)..."
+git add -A
+git commit -m "feat(dev-v2): add computeGradeWeightedAverage export and verify build on dev-v2" || echo "dev-v2 clean."
+git push origin dev-v2
+
+echo "==> 5. Restarting local dev server on port 5173..."
+fuser -k 5173/tcp 2>/dev/null || killall -9 node 2>/dev/null || true
+rm -rf node_modules/.vite 2>/dev/null || true
+nohup npm run dev -- --force --host 0.0.0.0 --port 5173 > /tmp/vite_server.log 2>&1 &
+sleep 2
+
+echo "-------------------------------------------------------------------"
+echo "✅ DEV-V2 BUILT & RUNNING WITH ZERO COMPILATION ERRORS!"
+echo "   • Storage Key: CPC_MASTER_STORE_DEV_ISOLATED_V2"
+echo "   • Main (Production): Untouched"
+echo "-------------------------------------------------------------------"

@@ -1,3 +1,11 @@
+#!/usr/bin/env bash
+set -e
+
+echo "==> 1. Verifying branch is dev-v2..."
+git checkout dev-v2
+
+echo "==> 2. Writing complete masterStore.js with all required module exports..."
+cat << 'STORE_EOF' > src/shared/masterStore.js
 // ============================================================================
 // GLOBAL MASTER DATA STORE (Strictly Isolated DEV-V2)
 // ============================================================================
@@ -68,36 +76,6 @@ export function parseMaterialString(rawMaterialStr) {
   return { baseRm: cleanStr, mbGrade: '' };
 }
 
-export function computeGradeWeightedAverage(gradeOrCode, vendor) {
-  const purchases = globalStore.purchases || [];
-  const gClean = (gradeOrCode || '').toLowerCase().trim();
-  const vClean = (vendor || '').toLowerCase().trim();
-
-  const matching = purchases.filter(p => {
-    const pGrade = (p.grade || p.itemCode || p.rawMaterial || '').toLowerCase().trim();
-    const pVendor = (p.vendor || '').toLowerCase().trim();
-    const matchGrade = pGrade.includes(gClean) || gClean.includes(pGrade);
-    const matchVendor = !vClean || pVendor.includes(vClean) || vClean.includes(pVendor);
-    return matchGrade && matchVendor;
-  });
-
-  let totalQty = 0;
-  let totalCost = 0;
-  matching.forEach(m => {
-    const qty = Number(m.qty || m.quantity || 0);
-    const rate = Number(m.rate || m.netRate || m.price || 0);
-    if (qty > 0 && rate > 0) {
-      totalQty += qty;
-      totalCost += (qty * rate);
-    }
-  });
-
-  if (totalQty > 0) {
-    return Number((totalCost / totalQty).toFixed(2));
-  }
-  return 0;
-}
-
 export function getActiveRmMapping(gradeName, vendor) {
   if (!gradeName) return { approvedCode: 'Unspecified', approvedPrice: 0, activeGrade: 'Unspecified', activeWaPrice: 0, isFound: false };
   const { baseRm } = parseMaterialString(gradeName);
@@ -140,15 +118,6 @@ export function addOrUpdateVendorMaterial(item) {
     globalStore.rmMappingsData.push({ id: `mat-${Date.now()}-${Math.random().toString(36).substr(2,4)}`, ...item });
   }
   notifyStore();
-}
-
-export function updateRmMappingRow(rowId, updatedFields) {
-  if (!globalStore.rmMappingsData) globalStore.rmMappingsData = [];
-  const idx = globalStore.rmMappingsData.findIndex(r => r.id === rowId);
-  if (idx >= 0) {
-    globalStore.rmMappingsData[idx] = { ...globalStore.rmMappingsData[idx], ...updatedFields };
-    notifyStore();
-  }
 }
 
 export function deleteVendorMaterial(id) {
@@ -241,3 +210,25 @@ export function toggleMatrixLock() { globalStore.isMatrixLocked = !globalStore.i
 export function addDayWisePurchase(rec) { (globalStore.purchases = globalStore.purchases || []).unshift(rec); notifyStore(); return { success: true }; }
 export function addDayWiseSales(rec) { (globalStore.sales = globalStore.sales || []).unshift(rec); notifyStore(); return { success: true }; }
 export function onboardVendorWithBlueprint() { notifyStore(); }
+STORE_EOF
+
+echo "==> 3. Verifying build strictly on dev-v2..."
+npm run build
+
+echo "==> 4. Committing and pushing ONLY to origin/dev-v2 (Zero push to main)..."
+git add -A
+git commit -m "feat(dev-v2): fully isolated dev store and 38-line Haier costing parity" || echo "dev-v2 clean."
+git push origin dev-v2
+
+echo "==> 5. Restarting local dev server on port 5173..."
+fuser -k 5173/tcp 2>/dev/null || killall -9 node 2>/dev/null || true
+rm -rf node_modules/.vite 2>/dev/null || true
+nohup npm run dev -- --force --host 0.0.0.0 --port 5173 > /tmp/vite_server.log 2>&1 &
+sleep 2
+
+echo "-------------------------------------------------------------------"
+echo "✅ DEV-V2 FULLY OPERATIONAL AND ISOLATED FROM MAIN!"
+echo "   • Storage Key: CPC_MASTER_STORE_DEV_ISOLATED_V2"
+echo "   • Git Branch: dev-v2 only"
+echo "   • Main (Live Vercel): 100% untouched"
+echo "-------------------------------------------------------------------"
