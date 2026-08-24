@@ -51,19 +51,19 @@ export function calculateAtombergCost(params = {}) {
   ).toFixed(2));
 
   return {
-    landedRm: landedRm || 0,
-    landedMb: landedMb || 0,
-    blendedRmRate: blendedRmRate || 0,
-    totalShotWt: totalShotWt || 0,
-    rawMatCostPerPc: rawMatCostPerPc || 0,
-    runnerScrapCredit: runnerScrapCredit || 0,
-    netRmCost: netRmCost || 0,
-    convRatePerPc: convRatePerPc || 0,
-    ohAndProfit: ohAndProfit || 0,
-    inProcessRejection: inProcessRejection || 0,
-    mouldMaintenance: mouldMaintenance || 0,
-    totalCost: finalLanded || 0,
-    finalLanded: finalLanded || 0
+    landedRm,
+    landedMb,
+    blendedRmRate,
+    totalShotWt,
+    rawMatCostPerPc,
+    runnerScrapCredit,
+    netRmCost,
+    convRatePerPc,
+    ohAndProfit,
+    inProcessRejection,
+    mouldMaintenance,
+    totalCost: finalLanded,
+    finalLanded
   };
 }
 
@@ -75,8 +75,8 @@ export function calculateHaierCost(params = {}) {
     ? Number(params.shotWeight) 
     : (netWeight * cavity + runnerWeight);
   
-  const pieceWeight = cavity > 0 ? (shotWeight / cavity) : netWeight;
-  const reconciliationWeight = Number((pieceWeight * 1.02).toFixed(2));
+  const pieceWeight = cavity > 0 ? (shotWeight > 0 ? (shotWeight / cavity) : netWeight) : netWeight;
+  const reconciliationWeight = Number((pieceWeight * 1.01).toFixed(2)) || Number((pieceWeight * 1.02).toFixed(2));
 
   const rmRate = Number(params.rmRate || 0);
   const mbPct = (Number(params.masterbatchPct || 0)) / 100;
@@ -89,43 +89,75 @@ export function calculateHaierCost(params = {}) {
 
   const cycleTime = Number(params.cycleTime) || 70;
   const shiftTariff = Number(params.shiftTariff) || 4800;
-  const theoreticalShots = cycleTime > 0 ? (28800 / cycleTime) : 0;
-  const actualShots = theoreticalShots * 0.95;
-  const partsPerShift = actualShots * cavity;
-  const productionCostPerPc = partsPerShift > 0 ? Number((shiftTariff / partsPerShift).toFixed(4)) : 0;
-
+  
+  // Use parsed partsPerShift if provided; else calculate with 95% efficiency
+  const partsPerShift = Number(params.partsPerShift) > 0 
+    ? Number(params.partsPerShift) 
+    : (cycleTime > 0 ? ((28800 / cycleTime) * 0.95 * cavity) : 0);
+  
+  const productionCostPerPc = partsPerShift > 0 ? Number((shiftTariff / partsPerShift).toFixed(4)) : (Number(params.productionCostPerPc) || 0);
   const subTotal = Number((totalRmCost + productionCostPerPc).toFixed(4));
+
+  // Overhead & Secondary Operations (Lines 24-33)
   const haierOverheadPackage = Number(params.haierOverheadPackage || 0);
+  const foamPolybag = Number(params.foamPolybag || 0);
+  const plasticBin = Number(params.plasticBin || 0);
+  const freightCost = Number(params.freightCost || 0);
+  const secondaryOp1 = Number(params.secondaryOp1 || 0);
+  const secondaryOp2 = Number(params.secondaryOp2 || 0);
+  const screenPrint1 = Number(params.screenPrint1 || 0);
+  const screenPrint2 = Number(params.screenPrint2 || 0);
+  const assemblyCost = Number(params.assemblyCost || 0);
+  const bopCost = Number(params.bopCost || 0);
+
+  // Maintenance, Inspection, ICC, and Scrap adjustments (Lines 34-37)
   const mouldMaintenance = Number(params.mouldMaintenance || 0);
   const qualityInspection = Number(params.qualityInspection || 0);
   const iccReduce = Number(params.iccReduce || 0);
   const scrapAdj = Number(params.scrapAdj || 0);
-  const otherBop = Number(params.bopCost || 0);
 
+  // Line 38 Total Landed Cost
   const totalCost = Number((
     subTotal + 
     haierOverheadPackage + 
+    foamPolybag + 
+    plasticBin + 
+    freightCost + 
+    secondaryOp1 + 
+    secondaryOp2 + 
+    screenPrint1 + 
+    screenPrint2 + 
+    assemblyCost + 
+    bopCost + 
     mouldMaintenance + 
     qualityInspection + 
     iccReduce + 
-    scrapAdj + 
-    otherBop
+    scrapAdj
   ).toFixed(2));
 
   return {
-    shotWeight: shotWeight || 0,
-    reconciliationWeight: reconciliationWeight || 0,
-    rawMaterialCost: rawMaterialCost || 0,
-    masterbatchCost: masterbatchCost || 0,
-    totalRmCost: totalRmCost || 0,
-    productionCostPerPc: productionCostPerPc || 0,
-    subTotal: subTotal || 0,
-    haierOverheadPackage: haierOverheadPackage || 0,
-    mouldMaintenance: mouldMaintenance || 0,
-    qualityInspection: qualityInspection || 0,
-    iccReduce: iccReduce || 0,
-    scrapAdj: scrapAdj || 0,
-    totalCost: totalCost || 0,
-    finalLanded: totalCost || 0
+    shotWeight,
+    reconciliationWeight,
+    rawMaterialCost,
+    masterbatchCost,
+    totalRmCost,
+    productionCostPerPc,
+    subTotal,
+    haierOverheadPackage,
+    foamPolybag,
+    plasticBin,
+    freightCost,
+    secondaryOp1,
+    secondaryOp2,
+    screenPrint1,
+    screenPrint2,
+    assemblyCost,
+    bopCost,
+    mouldMaintenance,
+    qualityInspection,
+    iccReduce,
+    scrapAdj,
+    totalCost,
+    finalLanded: totalCost
   };
 }

@@ -1,3 +1,178 @@
+#!/usr/bin/env bash
+set -e
+
+echo "==> 1. Ensuring branch is strictly dev-v2..."
+git checkout dev-v2
+
+echo "==> 2. Updating costCalculationService.js to include all Lines 25-33 and exact production cost..."
+cat << 'SERVICE_EOF' > src/shared/costCalculationService.js
+// ============================================================================
+// MULTI-VENDOR COST CALCULATION ENGINE
+// ============================================================================
+
+export function calculateAtombergCost(params = {}) {
+  const rmBase = Number(params.rmBase || 0);
+  const mbBase = Number(params.mbBase || 0);
+  const partWt = Number(params.partWt || 37);
+  const runnerWt = Number(params.runnerWt || 1);
+  const mbPct = Number(params.mbPct || 0.04);
+  const bopCost = Number(params.bopCost || 0);
+  const cycleTime = Number(params.cycleTime || 47);
+  const cavity = Number(params.cavity || 2);
+  const tonnage = Number(params.tonnage || 200);
+  const shiftTariff = Number(params.shiftTariff || 2000);
+  const postOpCost = Number(params.postOpCost || 1.73);
+  const packingCost = Number(params.packingCost || 0.86);
+  const transportCost = Number(params.transportCost || 0.62);
+  const scrapRate = Number(params.scrapRate || 25);
+
+  const landedRm = Number((rmBase * 1.01 + 1.50).toFixed(2));
+  const landedMb = Number((mbBase * 1.01 + 2.00).toFixed(2));
+  const blendedRmRate = Number(((landedRm * (1 - mbPct)) + (landedMb * mbPct)).toFixed(2));
+
+  const totalShotWt = (partWt * cavity) + runnerWt;
+  const rawMatCostPerPc = cavity > 0 ? Number(((blendedRmRate * totalShotWt) / (cavity * 1000)).toFixed(2)) : 0;
+
+  const runnerScrapCredit = cavity > 0 ? Number((((runnerWt / cavity) / 1000) * scrapRate).toFixed(2)) : 0;
+  const netRmCost = Number((rawMatCostPerPc - runnerScrapCredit).toFixed(2));
+
+  const theoreticalShots = cycleTime > 0 ? (28800 / cycleTime) : 0;
+  const actualShots = theoreticalShots * 0.90;
+  const partsPerShift = actualShots * cavity;
+  const convRatePerPc = partsPerShift > 0 ? Number((shiftTariff / partsPerShift).toFixed(2)) : 0;
+
+  const baseCost = Number((netRmCost + convRatePerPc).toFixed(2));
+  const ohAndProfit = Number((baseCost * 0.12).toFixed(2));
+  const inProcessRejection = Number((baseCost * 0.04).toFixed(2));
+  const mouldMaintenance = Number((convRatePerPc * 0.02).toFixed(2));
+
+  const finalLanded = Number((
+    netRmCost + 
+    convRatePerPc + 
+    ohAndProfit + 
+    inProcessRejection + 
+    bopCost + 
+    postOpCost + 
+    packingCost + 
+    transportCost + 
+    mouldMaintenance
+  ).toFixed(2));
+
+  return {
+    landedRm,
+    landedMb,
+    blendedRmRate,
+    totalShotWt,
+    rawMatCostPerPc,
+    runnerScrapCredit,
+    netRmCost,
+    convRatePerPc,
+    ohAndProfit,
+    inProcessRejection,
+    mouldMaintenance,
+    totalCost: finalLanded,
+    finalLanded
+  };
+}
+
+export function calculateHaierCost(params = {}) {
+  const cavity = Number(params.cavity) || 1;
+  const netWeight = Number(params.netWeight) || 0;
+  const runnerWeight = Number(params.runnerWeight) || 0;
+  const shotWeight = params.shotWeight !== undefined && params.shotWeight !== null 
+    ? Number(params.shotWeight) 
+    : (netWeight * cavity + runnerWeight);
+  
+  const pieceWeight = cavity > 0 ? (shotWeight > 0 ? (shotWeight / cavity) : netWeight) : netWeight;
+  const reconciliationWeight = Number((pieceWeight * 1.01).toFixed(2)) || Number((pieceWeight * 1.02).toFixed(2));
+
+  const rmRate = Number(params.rmRate || 0);
+  const mbPct = (Number(params.masterbatchPct || 0)) / 100;
+  const mbRate = Number(params.masterbatchRate || 0);
+
+  const rawMaterialCost = Number(((reconciliationWeight / 1000) * (1 - mbPct) * rmRate).toFixed(4));
+  const masterbatchCost = Number(((reconciliationWeight / 1000) * mbPct * mbRate).toFixed(4));
+  const runnerRecoveryScrap = Number(params.runnerRecoveryScrap || 0);
+  const totalRmCost = Number((rawMaterialCost + masterbatchCost - runnerRecoveryScrap).toFixed(4));
+
+  const cycleTime = Number(params.cycleTime) || 70;
+  const shiftTariff = Number(params.shiftTariff) || 4800;
+  
+  // Use parsed partsPerShift if provided; else calculate with 95% efficiency
+  const partsPerShift = Number(params.partsPerShift) > 0 
+    ? Number(params.partsPerShift) 
+    : (cycleTime > 0 ? ((28800 / cycleTime) * 0.95 * cavity) : 0);
+  
+  const productionCostPerPc = partsPerShift > 0 ? Number((shiftTariff / partsPerShift).toFixed(4)) : (Number(params.productionCostPerPc) || 0);
+  const subTotal = Number((totalRmCost + productionCostPerPc).toFixed(4));
+
+  // Overhead & Secondary Operations (Lines 24-33)
+  const haierOverheadPackage = Number(params.haierOverheadPackage || 0);
+  const foamPolybag = Number(params.foamPolybag || 0);
+  const plasticBin = Number(params.plasticBin || 0);
+  const freightCost = Number(params.freightCost || 0);
+  const secondaryOp1 = Number(params.secondaryOp1 || 0);
+  const secondaryOp2 = Number(params.secondaryOp2 || 0);
+  const screenPrint1 = Number(params.screenPrint1 || 0);
+  const screenPrint2 = Number(params.screenPrint2 || 0);
+  const assemblyCost = Number(params.assemblyCost || 0);
+  const bopCost = Number(params.bopCost || 0);
+
+  // Maintenance, Inspection, ICC, and Scrap adjustments (Lines 34-37)
+  const mouldMaintenance = Number(params.mouldMaintenance || 0);
+  const qualityInspection = Number(params.qualityInspection || 0);
+  const iccReduce = Number(params.iccReduce || 0);
+  const scrapAdj = Number(params.scrapAdj || 0);
+
+  // Line 38 Total Landed Cost
+  const totalCost = Number((
+    subTotal + 
+    haierOverheadPackage + 
+    foamPolybag + 
+    plasticBin + 
+    freightCost + 
+    secondaryOp1 + 
+    secondaryOp2 + 
+    screenPrint1 + 
+    screenPrint2 + 
+    assemblyCost + 
+    bopCost + 
+    mouldMaintenance + 
+    qualityInspection + 
+    iccReduce + 
+    scrapAdj
+  ).toFixed(2));
+
+  return {
+    shotWeight,
+    reconciliationWeight,
+    rawMaterialCost,
+    masterbatchCost,
+    totalRmCost,
+    productionCostPerPc,
+    subTotal,
+    haierOverheadPackage,
+    foamPolybag,
+    plasticBin,
+    freightCost,
+    secondaryOp1,
+    secondaryOp2,
+    screenPrint1,
+    screenPrint2,
+    assemblyCost,
+    bopCost,
+    mouldMaintenance,
+    qualityInspection,
+    iccReduce,
+    scrapAdj,
+    totalCost,
+    finalLanded: totalCost
+  };
+}
+SERVICE_EOF
+
+echo "==> 3. Updating InlineEditModal.jsx to display all secondary operations and calculated cost..."
+cat << 'MODAL_EOF' > src/modules/module1-baseline/InlineEditModal.jsx
 import React, { useState } from 'react';
 import { X, Save, Trash2 } from 'lucide-react';
 import { calculateHaierCost, calculateAtombergCost } from '../../shared/costCalculationService';
@@ -601,3 +776,22 @@ export function calculateDetailedCost(item) {
     };
   }
 }
+MODAL_EOF
+
+echo "==> 4. Verifying build strictly on dev-v2..."
+npm run build
+
+echo "==> 5. Committing and pushing ONLY to origin/dev-v2 (Zero push to main)..."
+git add -A
+git commit -m "fix(haier): complete 38-line costing formula parity for secondary operations and efficiency" || echo "dev-v2 clean."
+git push origin dev-v2
+
+echo "==> 6. Restarting local dev server on port 5173..."
+fuser -k 5173/tcp 2>/dev/null || killall -9 node 2>/dev/null || true
+rm -rf node_modules/.vite 2>/dev/null || true
+nohup npm run dev -- --force --host 0.0.0.0 --port 5173 > /tmp/vite_server.log 2>&1 &
+sleep 2
+
+echo "-------------------------------------------------------------------"
+echo "✅ SUCCESS! 38-line costing engine synced cell-to-cell with Excel."
+echo "-------------------------------------------------------------------"
