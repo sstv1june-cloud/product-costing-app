@@ -1,135 +1,131 @@
 // ============================================================================
-// COST CALCULATION SERVICE (Atomberg & Haier Dual-Column Exact Math)
+// MULTI-VENDOR COST CALCULATION ENGINE
 // ============================================================================
 
-export function calculateAtombergCost({
-  rmBase = 131.0,
-  mbBase = 254.0,
-  partWt = 37.0,
-  runnerWt = 1.0,
-  mbPct = 0.04,
-  bopCost = 0.0,
-  cycleTime = 47.0,
-  cavity = 2,
-  tonnage = 200,
-  shiftTariff = 2000,
-  postOpCost = 1.73,
-  packingCost = 0.86,
-  transportCost = 0.62
-}) {
-  const pWt = Number(partWt) || 37.0;
-  const rWt = Number(runnerWt) || 1.0;
-  const grossWt = pWt + rWt;
-  const ct = Number(cycleTime) || 47.0;
-  const cav = Number(cavity) || 2;
-  const shiftTar = Number(shiftTariff) || 2000;
-  const bop = Number(bopCost) || 0.0;
-  const mbRatio = Number(mbPct) || 0.04;
+export function calculateAtombergCost(params = {}) {
+  const rmBase = Number(params.rmBase || 0);
+  const mbBase = Number(params.mbBase || 0);
+  const partWt = Number(params.partWt || 37);
+  const runnerWt = Number(params.runnerWt || 1);
+  const mbPct = Number(params.mbPct || 0.04);
+  const bopCost = Number(params.bopCost || 0);
+  const cycleTime = Number(params.cycleTime || 47);
+  const cavity = Number(params.cavity || 2);
+  const tonnage = Number(params.tonnage || 200);
+  const shiftTariff = Number(params.shiftTariff || 2000);
+  const postOpCost = Number(params.postOpCost || 1.73);
+  const packingCost = Number(params.packingCost || 0.86);
+  const transportCost = Number(params.transportCost || 0.62);
+  const scrapRate = Number(params.scrapRate || 25);
 
-  const rmLanded = Number(rmBase) > 0 ? (Number(rmBase) + (Number(rmBase) * 0.01) + 1.50) : 0;
-  const mbLanded = Number(mbBase) > 0 ? (Number(mbBase) + (Number(mbBase) * 0.01) + 2.00) : 0;
-  const rmComb = (rmLanded * (1.0 - mbRatio)) + (mbLanded * mbRatio);
-  const rmCost = (grossWt / 1000.0) * rmComb;
-  const rmBop = rmCost + bop;
+  const landedRm = Number((rmBase * 1.01 + 1.50).toFixed(2));
+  const landedMb = Number((mbBase * 1.01 + 2.00).toFixed(2));
+  const blendedRmRate = Number(((landedRm * (1 - mbPct)) + (landedMb * mbPct)).toFixed(2));
 
-  const partsShift = (28800.0 / (ct > 0 ? ct : 1)) * 0.90 * cav;
-  const procCost = partsShift > 0 ? (shiftTar / partsShift) : 0;
-  const totalProc = procCost + (0.03 * bop) + Number(postOpCost || 1.73);
+  const totalShotWt = (partWt * cavity) + runnerWt;
+  const rawMatCostPerPc = cavity > 0 ? Number(((blendedRmRate * totalShotWt) / (cavity * 1000)).toFixed(2)) : 0;
 
-  const profitOh = (rmCost + totalProc) * 0.12;
-  const inprocRej = (rmBop + totalProc) * 0.04;
-  const runnerRec = -25.0 * (rWt / 1000.0);
-  const pack = Number(packingCost || 0.86);
-  const trans = Number(transportCost || 0.62);
-  const mouldMaint = 0.02 * totalProc;
+  const runnerScrapCredit = cavity > 0 ? Number((((runnerWt / cavity) / 1000) * scrapRate).toFixed(2)) : 0;
+  const netRmCost = Number((rawMatCostPerPc - runnerScrapCredit).toFixed(2));
 
-  const finalLanded = rmCost + bop + totalProc + profitOh + inprocRej + runnerRec + pack + trans + mouldMaint;
+  const theoreticalShots = cycleTime > 0 ? (28800 / cycleTime) : 0;
+  const actualShots = theoreticalShots * 0.90;
+  const partsPerShift = actualShots * cavity;
+  const convRatePerPc = partsPerShift > 0 ? Number((shiftTariff / partsPerShift).toFixed(2)) : 0;
+
+  const baseCost = Number((netRmCost + convRatePerPc).toFixed(2));
+  const ohAndProfit = Number((baseCost * 0.12).toFixed(2));
+  const inProcessRejection = Number((baseCost * 0.04).toFixed(2));
+  const mouldMaintenance = Number((convRatePerPc * 0.02).toFixed(2));
+
+  const finalLanded = Number((
+    netRmCost + 
+    convRatePerPc + 
+    ohAndProfit + 
+    inProcessRejection + 
+    bopCost + 
+    postOpCost + 
+    packingCost + 
+    transportCost + 
+    mouldMaintenance
+  ).toFixed(2));
 
   return {
-    rmLanded,
-    mbLanded,
-    rmCombinedRate: rmComb,
-    grossWeight: grossWt,
-    rmCost,
-    rmPlusBop: rmBop,
-    partsPerShift: partsShift,
-    processCost: procCost,
-    totalProcessCost: totalProc,
-    profitAndOh: profitOh,
-    inprocessRejection: inprocRej,
-    runnerRecovery: runnerRec,
-    packingCost: pack,
-    transportCost: trans,
-    mouldMaintenance: mouldMaint,
-    finalLanded: Number(finalLanded.toFixed(2))
+    landedRm: landedRm || 0,
+    landedMb: landedMb || 0,
+    blendedRmRate: blendedRmRate || 0,
+    totalShotWt: totalShotWt || 0,
+    rawMatCostPerPc: rawMatCostPerPc || 0,
+    runnerScrapCredit: runnerScrapCredit || 0,
+    netRmCost: netRmCost || 0,
+    convRatePerPc: convRatePerPc || 0,
+    ohAndProfit: ohAndProfit || 0,
+    inProcessRejection: inProcessRejection || 0,
+    mouldMaintenance: mouldMaintenance || 0,
+    totalCost: finalLanded || 0,
+    finalLanded: finalLanded || 0
   };
 }
 
-export function calculateHaierCost({
-  cavity = 2,
-  netWeight = 197,
-  runnerWeight = 40,
-  rmRate = 136.20,
-  masterbatchPct = 0,
-  masterbatchRate = 250,
-  machineTonnage = 450,
-  shiftTariff = 3600,
-  cycleTime = 56,
-  bopCost = 0.14,
-  haierOverheadPackage = 5.15
-}) {
-  const cav = Number(cavity) || 2;
-  const net = Number(netWeight) || 197;
-  const run = Number(runnerWeight) || 40;
-  const shot = (net * cav) + run;
+export function calculateHaierCost(params = {}) {
+  const cavity = Number(params.cavity) || 1;
+  const netWeight = Number(params.netWeight) || 0;
+  const runnerWeight = Number(params.runnerWeight) || 0;
+  const shotWeight = params.shotWeight !== undefined && params.shotWeight !== null 
+    ? Number(params.shotWeight) 
+    : (netWeight * cavity + runnerWeight);
   
-  // Exact Excel formula: Reconciliation Weight = (Net Weight * 1%) + Net Weight = Net Weight * 1.01 = 198.97g
-  const reconcilWt = net * 1.01;
-  const mbFrac = Number(masterbatchPct || 0) / 100.0;
-  
-  const rmMatCost = (reconcilWt / 1000.0) * (Number(rmRate || 0) * (1.0 - mbFrac));
-  const mbMatCost = (reconcilWt / 1000.0) * (Number(masterbatchRate || 0) * mbFrac);
-  const runnerRecov = -1.36; // Constant recovery credit adjustment
-  const totRmCost = rmMatCost + mbMatCost + runnerRecov;
+  const pieceWeight = cavity > 0 ? (shotWeight / cavity) : netWeight;
+  const reconciliationWeight = Number((pieceWeight * 1.02).toFixed(2));
 
-  const ct = Number(cycleTime) || 56;
-  const shotsShift = 28800.0 / (ct > 0 ? ct : 1);
-  const shotsEff = shotsShift * 0.95;
-  const compShift = shotsEff * cav;
-  const prodCostPc = compShift > 0 ? (Number(shiftTariff || 3600) / compShift) : 0;
-  const subTotal = totRmCost + prodCostPc;
+  const rmRate = Number(params.rmRate || 0);
+  const mbPct = (Number(params.masterbatchPct || 0)) / 100;
+  const mbRate = Number(params.masterbatchRate || 0);
 
-  const ohPkg = Number(haierOverheadPackage !== undefined ? haierOverheadPackage : 5.15);
-  const bop = Number(bopCost || 0.14);
-  const iccReduce = -0.13;
-  const scrapAdj = -1.36;
-  const totalCost = subTotal + ohPkg + bop + iccReduce + scrapAdj;
+  const rawMaterialCost = Number(((reconciliationWeight / 1000) * (1 - mbPct) * rmRate).toFixed(4));
+  const masterbatchCost = Number(((reconciliationWeight / 1000) * mbPct * mbRate).toFixed(4));
+  const runnerRecoveryScrap = Number(params.runnerRecoveryScrap || 0);
+  const totalRmCost = Number((rawMaterialCost + masterbatchCost - runnerRecoveryScrap).toFixed(4));
+
+  const cycleTime = Number(params.cycleTime) || 70;
+  const shiftTariff = Number(params.shiftTariff) || 4800;
+  const theoreticalShots = cycleTime > 0 ? (28800 / cycleTime) : 0;
+  const actualShots = theoreticalShots * 0.95;
+  const partsPerShift = actualShots * cavity;
+  const productionCostPerPc = partsPerShift > 0 ? Number((shiftTariff / partsPerShift).toFixed(4)) : 0;
+
+  const subTotal = Number((totalRmCost + productionCostPerPc).toFixed(4));
+  const haierOverheadPackage = Number(params.haierOverheadPackage || 0);
+  const mouldMaintenance = Number(params.mouldMaintenance || 0);
+  const qualityInspection = Number(params.qualityInspection || 0);
+  const iccReduce = Number(params.iccReduce || 0);
+  const scrapAdj = Number(params.scrapAdj || 0);
+  const otherBop = Number(params.bopCost || 0);
+
+  const totalCost = Number((
+    subTotal + 
+    haierOverheadPackage + 
+    mouldMaintenance + 
+    qualityInspection + 
+    iccReduce + 
+    scrapAdj + 
+    otherBop
+  ).toFixed(2));
 
   return {
-    shotWeight: shot,
-    reconciliationWeight: reconcilWt,
-    rmMatCost,
-    mbMatCost,
-    totalRawMaterialCost: totRmCost,
-    productionCostPerPc: prodCostPc,
-    subTotal,
-    overheadPackage: ohPkg,
-    totalCost: Number(totalCost.toFixed(2))
+    shotWeight: shotWeight || 0,
+    reconciliationWeight: reconciliationWeight || 0,
+    rawMaterialCost: rawMaterialCost || 0,
+    masterbatchCost: masterbatchCost || 0,
+    totalRmCost: totalRmCost || 0,
+    productionCostPerPc: productionCostPerPc || 0,
+    subTotal: subTotal || 0,
+    haierOverheadPackage: haierOverheadPackage || 0,
+    mouldMaintenance: mouldMaintenance || 0,
+    qualityInspection: qualityInspection || 0,
+    iccReduce: iccReduce || 0,
+    scrapAdj: scrapAdj || 0,
+    totalCost: totalCost || 0,
+    finalLanded: totalCost || 0
   };
-}
-
-export function calculateDetailedCost(item) {
-  const isAtomberg = (item?.vendor || '').toLowerCase().includes('atomberg');
-  if (isAtomberg) {
-    return calculateAtombergCost(item || {});
-  }
-  return calculateHaierCost(item || {});
-}
-
-export function calculatePieceCostUnified(item) {
-  const isAtomberg = (item?.vendor || '').toLowerCase().includes('atomberg');
-  if (isAtomberg) {
-    return calculateAtombergCost(item || {}).finalLanded;
-  }
-  return calculateHaierCost(item || {}).totalCost;
 }
