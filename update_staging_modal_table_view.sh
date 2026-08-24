@@ -1,3 +1,11 @@
+#!/usr/bin/env bash
+set -e
+
+echo "==> 1. Ensuring branch is dev-v2..."
+git checkout dev-v2
+
+echo "==> 2. Updating BaselineMasterPage.jsx with rich structured staging table preview..."
+cat << 'PAGE_EOF' > src/modules/module1-baseline/BaselineMasterPage.jsx
 import React, { useState, useEffect } from 'react';
 import { 
   Upload, 
@@ -562,3 +570,22 @@ export default function BaselineMasterPage() {
     </div>
   );
 }
+PAGE_EOF
+
+echo "==> 3. Verifying build strictly on dev-v2..."
+npm run build
+
+echo "==> 4. Committing and pushing ONLY to origin/dev-v2 (Zero push to main)..."
+git add -A
+git commit -m "feat(dev-v2): restore full-width table staging modal for multi-product uploads" || echo "dev-v2 clean."
+git push origin dev-v2
+
+echo "==> 5. Restarting local dev server on port 5173..."
+fuser -k 5173/tcp 2>/dev/null || killall -9 node 2>/dev/null || true
+rm -rf node_modules/.vite 2>/dev/null || true
+nohup npm run dev -- --force --host 0.0.0.0 --port 5173 > /tmp/vite_server.log 2>&1 &
+sleep 2
+
+echo "-------------------------------------------------------------------"
+echo "✅ DEV-V2 STAGING MODAL RESTORED AS FULL STRUCTURED TABLE!"
+echo "-------------------------------------------------------------------"
