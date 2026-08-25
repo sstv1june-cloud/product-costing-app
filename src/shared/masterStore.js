@@ -16,8 +16,8 @@ function loadPersistedStore() {
 }
 
 const defaultStore = {
-  isLocked: true,
-  isMatrixLocked: true,
+  isLocked: false,
+  isMatrixLocked: false,
   vendors: [
     { vendorId: 'Haier Appliances', vendorName: 'Haier Appliances' },
     { vendorId: 'Atomberg Technologies', vendorName: 'Atomberg Technologies' },
@@ -56,6 +56,15 @@ export function subscribeStore(fn) {
 export function notifyStore() {
   persistCurrentStore();
   listeners.forEach(fn => { try { fn(globalStore); } catch (e) { console.error(e); } });
+}
+
+export function purgeAllTestData() {
+  globalStore.rmMappingsData = [];
+  globalStore.baselineProducts = [];
+  globalStore.purchases = [];
+  globalStore.sales = [];
+  globalStore.auditLogs = [];
+  notifyStore();
 }
 
 export function parseMaterialString(rawMaterialStr) {
