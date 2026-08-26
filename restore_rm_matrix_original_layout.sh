@@ -1,3 +1,11 @@
+#!/usr/bin/env bash
+set -e
+
+echo "==> 1. Ensuring branch is dev-v2..."
+git checkout dev-v2
+
+echo "==> 2. Restoring complete original RMPriceMatrixPage.jsx layout..."
+cat << 'RM_PAGE_EOF' > src/modules/module2-rm-matrix/RMPriceMatrixPage.jsx
 import React, { useState, useEffect } from 'react';
 import { 
   Lock, 
@@ -908,3 +916,22 @@ export default function RMPriceMatrixPage() {
     </div>
   );
 }
+RM_PAGE_EOF
+
+echo "==> 3. Verifying build strictly on dev-v2..."
+npm run build
+
+echo "==> 4. Committing and pushing ONLY to origin/dev-v2 (Zero push to main)..."
+git add -A
+git commit -m "feat(dev-v2): restore complete original RM matrix layout with dropdowns, radios, and change log" || echo "dev-v2 clean."
+git push origin dev-v2
+
+echo "==> 5. Restarting local dev server on port 5173..."
+fuser -k 5173/tcp 2>/dev/null || killall -9 node 2>/dev/null || true
+rm -rf node_modules/.vite 2>/dev/null || true
+nohup npm run dev -- --force --host 0.0.0.0 --port 5173 > /tmp/vite_server.log 2>&1 &
+sleep 2
+
+echo "-------------------------------------------------------------------"
+echo "✅ SUCCESS! RM Matrix original layout restored with full functionality."
+echo "-------------------------------------------------------------------"
