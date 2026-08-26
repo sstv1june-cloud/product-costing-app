@@ -7,8 +7,8 @@ import {
   ArrowDownRight, 
   DollarSign, 
   TrendingUp, 
-  TrendingDown,
-  Database
+  Database,
+  FileSpreadsheet
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { globalStore, subscribeStore, getActiveRmMapping } from '../../shared/masterStore';
@@ -39,7 +39,6 @@ export default function MISVariancePage() {
   const purchases = storeState.purchases || [];
   const baselineProducts = storeState.baselineProducts || [];
 
-  // Filter Sales
   const filteredSales = sales.filter(s => {
     const sVendor = (s.vendor || '').toLowerCase();
     const matchVendor = selectedVendor === 'ALL' || sVendor.includes(selectedVendor.toLowerCase()) || selectedVendor.toLowerCase().includes(sVendor);
@@ -48,7 +47,6 @@ export default function MISVariancePage() {
     return matchVendor && matchDate;
   });
 
-  // Calculate Product Summary
   const productSummaryMap = {};
   let totalVolume = 0;
   let totalRevenue = 0;
@@ -97,7 +95,6 @@ export default function MISVariancePage() {
   const grossProfit = totalRevenue - totalActualCost;
   const grossMarginPct = totalRevenue > 0 ? ((grossProfit / totalRevenue) * 100).toFixed(1) : '0';
 
-  // Vendor-Wise Period Comparison Dynamic Calculations
   const vendorBreakdowns = vendors.map(v => {
     const vSales = sales.filter(s => {
       const sv = (s.vendor || '').toLowerCase();
@@ -132,7 +129,6 @@ export default function MISVariancePage() {
   const allVendorsRev = vendorBreakdowns.reduce((acc, v) => acc + v.currentRev, 0);
   const allVendorsGainLoss = vendorBreakdowns.reduce((acc, v) => acc + v.currentGainLoss, 0);
 
-  // Drilldown calculations for selected drilldown vendor
   const drilldownSales = sales.filter(s => {
     const sv = (s.vendor || '').toLowerCase();
     return drilldownVendor === 'ALL' || sv.includes(drilldownVendor.toLowerCase()) || drilldownVendor.toLowerCase().includes(sv);
@@ -162,7 +158,6 @@ export default function MISVariancePage() {
   const topProfitParts = drilldownParts.filter(p => p.gainLoss > 0).sort((a,b) => b.gainLoss - a.gainLoss).slice(0, 3);
   const topLossParts = drilldownParts.filter(p => p.gainLoss < 0).sort((a,b) => a.gainLoss - b.gainLoss).slice(0, 3);
 
-  // Dynamic Driver Breakdown
   let haierRmDelta = 0, atomRmDelta = 0;
   let haierMbDelta = 0, atomMbDelta = 0;
 
@@ -187,6 +182,15 @@ export default function MISVariancePage() {
     }
   });
 
+  // Export Section Report (Red Box Target)
+  const handleExportRealizationSection = () => {
+    const dataToExport = activeTab === 'summary' ? productSummaryList : filteredSales;
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, activeTab === 'summary' ? "Realization_Summary" : "Sales_Invoices");
+    XLSX.writeFile(wb, `MIS_Sales_Realization_${selectedVendor}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
+
   const exportReport = () => {
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(productSummaryList);
@@ -196,7 +200,7 @@ export default function MISVariancePage() {
 
   return (
     <div className="space-y-4 text-xs font-sans">
-      {/* Top Banner (Exact Image 1) */}
+      {/* Top Banner */}
       <div className="bg-slate-900 text-white rounded-2xl p-4 shadow-md flex flex-wrap justify-between items-center gap-3">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-blue-600 rounded-xl">
@@ -242,7 +246,7 @@ export default function MISVariancePage() {
         </div>
       </div>
 
-      {/* Section 1: Product Sales Realization & Costing Analysis */}
+      {/* Section 1: Product Sales Realization & Costing Analysis with Section Export Button */}
       <div className="bg-white rounded-2xl border border-slate-300 overflow-hidden shadow-sm">
         <div className="p-3 bg-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
           <div className="flex items-center gap-3">
@@ -290,6 +294,14 @@ export default function MISVariancePage() {
               onChange={e => setPeriodTo(e.target.value)} 
               className="px-2 py-1 bg-slate-800 text-white border border-slate-700 rounded-lg text-xs font-mono" 
             />
+
+            {/* Red Box Target: Section Download Button */}
+            <button
+              onClick={handleExportRealizationSection}
+              className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold flex items-center gap-1.5 cursor-pointer text-xs shadow-sm transition"
+            >
+              <Download className="w-3.5 h-3.5" /> Export Section (.xlsx)
+            </button>
           </div>
         </div>
 
@@ -343,7 +355,7 @@ export default function MISVariancePage() {
         </div>
       </div>
 
-      {/* Section 2: Vendor-Wise Period VS Previous Period Comparison (Exact Image 1) */}
+      {/* Section 2: Vendor-Wise Period VS Previous Period Comparison */}
       <div className="bg-white rounded-2xl border border-slate-300 overflow-hidden shadow-sm">
         <div className="p-3 bg-slate-900 text-white flex flex-wrap justify-between items-center gap-3">
           <div className="flex items-center gap-2">
@@ -404,7 +416,6 @@ export default function MISVariancePage() {
                   </td>
                 </tr>
               ))}
-              {/* All Vendors Combined Row */}
               <tr className="bg-slate-900 text-white font-bold">
                 <td className="py-2.5 px-4 uppercase text-amber-400">All Vendors Combined</td>
                 <td className="py-2.5 px-3 text-right font-mono text-amber-300">₹{allVendorsRev.toLocaleString()}</td>
@@ -423,7 +434,7 @@ export default function MISVariancePage() {
         </div>
       </div>
 
-      {/* Section 3: Multi-Month Variance Drilldown & Top-6 Part Breakdown (Exact Image 1) */}
+      {/* Section 3: Multi-Month Variance Drilldown */}
       <div className="bg-white rounded-2xl border border-slate-300 overflow-hidden shadow-sm">
         <div className="p-3 bg-slate-900 text-white flex justify-between items-center">
           <div className="flex items-center gap-2">
@@ -473,7 +484,6 @@ export default function MISVariancePage() {
                 </td>
               </tr>
               
-              {/* Profit DrillDown Header */}
               <tr className="bg-emerald-50/60 font-bold text-emerald-950">
                 <td colSpan={5} className="py-2 px-4 flex items-center gap-1.5">
                   <ArrowUpRight className="w-4 h-4 text-emerald-600" /> DrillDown - COST VARIANCE GAIN / LOSS: Top-6 parts with Profit (Favorable Variance)
@@ -493,7 +503,6 @@ export default function MISVariancePage() {
                 ))
               )}
 
-              {/* Loss DrillDown Header */}
               <tr className="bg-rose-50/60 font-bold text-rose-950">
                 <td colSpan={5} className="py-2 px-4 flex items-center gap-1.5">
                   <ArrowDownRight className="w-4 h-4 text-rose-600" /> DrillDown: Top-6 parts with Loss (Unfavorable Variance / Drift)
@@ -517,7 +526,7 @@ export default function MISVariancePage() {
         </div>
       </div>
 
-      {/* Section 4: Root-Cause Cost Gap Breakdown by Driver (Exact Image 1) */}
+      {/* Section 4: Root-Cause Cost Gap Breakdown by Driver */}
       <div className="bg-white rounded-2xl border border-slate-300 overflow-hidden shadow-sm">
         <div className="p-3 bg-slate-900 text-white flex justify-between items-center">
           <div className="flex items-center gap-2">
