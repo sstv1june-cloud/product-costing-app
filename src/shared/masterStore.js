@@ -1,8 +1,8 @@
 // ============================================================================
-// GLOBAL MASTER DATA STORE (Strictly Isolated DEV-V2 - Clean Slate)
+// GLOBAL MASTER DATA STORE (Strictly Isolated DEV-V2)
 // ============================================================================
 
-const STORAGE_KEY = 'CPC_MASTER_STORE_DEV_V2_CLEAN_SLATE_01';
+const STORAGE_KEY = 'CPC_MASTER_STORE_DEV_V2_CLEAN_SLATE_02';
 
 function loadPersistedStore() {
   if (typeof window === 'undefined') return null;
@@ -16,8 +16,8 @@ function loadPersistedStore() {
 }
 
 const defaultStore = {
-  isLocked: false,
-  isMatrixLocked: false,
+  isLocked: true,        // Global Level 1 Lock (Default: Locked)
+  isMatrixLocked: true,  // Level 2 Matrix Rates Lock (Default: Locked)
   vendors: [
     { vendorId: 'Haier Appliances', vendorName: 'Haier Appliances' },
     { vendorId: 'Atomberg Technologies', vendorName: 'Atomberg Technologies' },
@@ -35,6 +35,8 @@ const initialStore = loadPersistedStore() || defaultStore;
 export let globalStore = {
   ...defaultStore,
   ...initialStore,
+  isLocked: initialStore.isLocked !== undefined ? initialStore.isLocked : true,
+  isMatrixLocked: initialStore.isMatrixLocked !== undefined ? initialStore.isMatrixLocked : true,
   vendors: (initialStore.vendors && initialStore.vendors.length > 0) ? initialStore.vendors : defaultStore.vendors,
   baselineProducts: initialStore.baselineProducts || [],
   rmMappingsData: initialStore.rmMappingsData || [],
@@ -84,14 +86,15 @@ export function parseMaterialString(rawMaterialStr) {
 
 export function computeGradeWeightedAverage(gradeOrCode, vendor) {
   const purchases = globalStore.purchases || [];
-  const gClean = (gradeOrCode || '').toLowerCase().trim();
-  const vClean = (vendor || '').toLowerCase().trim();
+  if (!gradeOrCode) return 0;
+  const gClean = gradeOrCode.toString().toLowerCase().trim();
+  const vClean = (vendor || '').toString().toLowerCase().trim();
 
   const matching = purchases.filter(p => {
-    const pGrade = (p.grade || p.itemCode || p.rawMaterial || '').toLowerCase().trim();
-    const pVendor = (p.vendor || '').toLowerCase().trim();
-    const matchGrade = pGrade.includes(gClean) || gClean.includes(pGrade);
-    const matchVendor = !vClean || pVendor.includes(vClean) || vClean.includes(pVendor);
+    const pGrade = (p.grade || p.itemCode || p.rawMaterial || p.supplier || '').toString().toLowerCase().trim();
+    const pVendor = (p.vendor || '').toString().toLowerCase().trim();
+    const matchGrade = pGrade === gClean || pGrade.includes(gClean) || gClean.includes(pGrade);
+    const matchVendor = !vClean || vClean === 'all' || pVendor.includes(vClean) || vClean.includes(pVendor);
     return matchGrade && matchVendor;
   });
 
