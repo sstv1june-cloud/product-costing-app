@@ -3,19 +3,19 @@
 // ============================================================================
 
 export function calculateAtombergCost(params = {}) {
-  const rmBase = Number(params.rmBase || 0);
-  const mbBase = Number(params.mbBase || 0);
-  const partWt = Number(params.partWt !== undefined ? params.partWt : (params.netWeight || 133.81));
-  const runnerWt = Number(params.runnerWt !== undefined ? params.runnerWt : (params.runnerWeight || 5.27));
+  const rmBase = Number(params.rmBase !== undefined ? params.rmBase : 131.00);
+  const mbBase = Number(params.mbBase !== undefined ? params.mbBase : 242.00);
+  const partWt = Number(params.partWt !== undefined ? params.partWt : (params.netWeight !== undefined ? params.netWeight : 133.81));
+  const runnerWt = Number(params.runnerWt !== undefined ? params.runnerWt : (params.runnerWeight !== undefined ? params.runnerWeight : 5.27));
   const mbPct = Number(params.mbPct !== undefined ? params.mbPct : ((Number(params.masterbatchPct) || 2) / 100));
   const bopCost = Number(params.bopCost || 0);
   const cycleTime = Number(params.cycleTime !== undefined ? params.cycleTime : (params.cycleTimeApproved || 38));
-  const cavity = Number(params.cavity || 1);
+  const cavity = Number(params.cavity || 2);
   const tonnage = Number(params.tonnage || params.machineTonnage || 150);
   const shiftTariff = Number(params.shiftTariff || 2800);
-  const postOpCost = Number(params.postOpCost || 1.73);
-  const packingCost = Number(params.packingCost || 0.86);
-  const transportCost = Number(params.transportCost || 0.62);
+  const postOpCost = Number(params.postOpCost !== undefined ? params.postOpCost : 1.73);
+  const packingCost = Number(params.packingCost !== undefined ? params.packingCost : 0.86);
+  const transportCost = Number(params.transportCost !== undefined ? params.transportCost : 0.62);
   const scrapRate = Number(params.scrapRate || 25);
 
   // 1. Landed Material Rates
