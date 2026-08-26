@@ -1,8 +1,8 @@
 // ============================================================================
-// GLOBAL MASTER DATA STORE (Strictly Isolated DEV-V2)
+// GLOBAL MASTER DATA STORE (Strictly Isolated DEV-V2 - Clean Slate)
 // ============================================================================
 
-const STORAGE_KEY = 'CPC_MASTER_STORE_DEV_ISOLATED_V2';
+const STORAGE_KEY = 'CPC_MASTER_STORE_DEV_V2_CLEAN_SLATE_01';
 
 function loadPersistedStore() {
   if (typeof window === 'undefined') return null;
@@ -35,7 +35,12 @@ const initialStore = loadPersistedStore() || defaultStore;
 export let globalStore = {
   ...defaultStore,
   ...initialStore,
-  vendors: (initialStore.vendors && initialStore.vendors.length > 0) ? initialStore.vendors : defaultStore.vendors
+  vendors: (initialStore.vendors && initialStore.vendors.length > 0) ? initialStore.vendors : defaultStore.vendors,
+  baselineProducts: initialStore.baselineProducts || [],
+  rmMappingsData: initialStore.rmMappingsData || [],
+  purchases: initialStore.purchases || [],
+  sales: initialStore.sales || [],
+  auditLogs: initialStore.auditLogs || []
 };
 
 function persistCurrentStore() {
