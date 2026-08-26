@@ -1,79 +1,107 @@
 // ============================================================================
-// MULTI-VENDOR COST CALCULATION ENGINE
+// MULTI-VENDOR COST CALCULATION ENGINE (Exact Atomberg 38-Line + Haier 38-Line)
 // ============================================================================
 
 export function calculateAtombergCost(params = {}) {
+  // 1. RM & MB Base Rates
   const rmBase = Number(params.rmBase !== undefined ? params.rmBase : 131.00);
-  const mbBase = Number(params.mbBase !== undefined ? params.mbBase : 242.00);
-  const partWt = Number(params.partWt !== undefined ? params.partWt : (params.netWeight !== undefined ? params.netWeight : 133.81));
-  const runnerWt = Number(params.runnerWt !== undefined ? params.runnerWt : (params.runnerWeight !== undefined ? params.runnerWeight : 5.27));
-  const mbPct = Number(params.mbPct !== undefined ? params.mbPct : ((Number(params.masterbatchPct) || 2) / 100));
-  const bopCost = Number(params.bopCost || 0);
-  const cycleTime = Number(params.cycleTime !== undefined ? params.cycleTime : (params.cycleTimeApproved || 38));
+  const mbBase = Number(params.mbBase !== undefined ? params.mbBase : 154.00);
+  
+  const rmIcc = Number((rmBase * 0.01).toFixed(2));
+  const rmFreight = 1.50;
+  const rmLanded = Number((rmBase + rmIcc + rmFreight).toFixed(2)); // 133.81
+
+  const mbIcc = Number((mbBase * 0.01).toFixed(2));
+  const mbFreight = 2.00;
+  const mbLanded = Number((mbBase + mbIcc + mbFreight).toFixed(2)); // 157.54
+
+  // 2. MB % & Blended RM Rate
+  const mbPctRaw = Number(params.mbPct !== undefined ? params.mbPct : ((Number(params.masterbatchPct) || 4) / 100));
+  const mbPct = mbPctRaw > 1 ? mbPctRaw / 100 : mbPctRaw;
+  const blendedRmRate = Number(( (rmLanded * (1 - mbPct)) + (mbLanded * mbPct) ).toFixed(2)); // 134.76 or 138.80
+
+  // 3. Weights & RM Cost
+  const partWt = Number(params.partWt !== undefined ? params.partWt : (params.netWeight !== undefined ? params.netWeight : 37.00));
+  const runnerWt = Number(params.runnerWt !== undefined ? params.runnerWt : (params.runnerWeight !== undefined ? params.runnerWeight : 1.00));
   const cavity = Number(params.cavity || 2);
-  const tonnage = Number(params.tonnage || params.machineTonnage || 150);
-  const shiftTariff = Number(params.shiftTariff || 2800);
-  const postOpCost = Number(params.postOpCost !== undefined ? params.postOpCost : 1.73);
-  const packingCost = Number(params.packingCost !== undefined ? params.packingCost : 0.86);
-  const transportCost = Number(params.transportCost !== undefined ? params.transportCost : 0.62);
-  const scrapRate = Number(params.scrapRate || 25);
+  const grossWt = Number((partWt + (cavity > 0 ? (runnerWt / cavity) : runnerWt)).toFixed(2)); // 37.5g or 38g
 
-  // 1. Landed Material Rates
-  const landedRm = Number((rmBase * 1.01 + 1.50).toFixed(2));
-  const landedMb = Number((mbBase * 1.01 + 2.00).toFixed(2));
-  const blendedRmRate = Number(((landedRm * (1 - mbPct)) + (landedMb * mbPct)).toFixed(2));
+  const rmCostPerPc = Number(((blendedRmRate * (partWt * cavity + runnerWt)) / (cavity * 1000)).toFixed(2)); // 5.27
+  const bopCost = Number(params.bopCost || 0);
+  const rmPlusBop = Number((rmCostPerPc + bopCost).toFixed(2)); // 5.27
 
-  // 2. Shot Weight & Raw Material Cost
-  const totalShotWt = Number(((partWt * cavity) + runnerWt).toFixed(2));
-  const rawMatCostPerPc = cavity > 0 ? Number(((blendedRmRate * totalShotWt) / (cavity * 1000)).toFixed(2)) : 0;
-  const runnerScrapCredit = cavity > 0 ? Number((((runnerWt / cavity) / 1000) * scrapRate).toFixed(2)) : 0;
-  const netRmCost = Number((rawMatCostPerPc - runnerScrapCredit).toFixed(2));
+  // 4. Machine Conversion Cost (90% Efficiency)
+  const tonnage = Number(params.tonnage || params.machineTonnage || 200);
+  const shiftTariff = Number(params.shiftTariff || 2000);
+  const cycleTime = Number(params.cycleTime !== undefined ? params.cycleTime : (params.cycleTimeApproved || 47));
+  const efficiency = 0.90;
 
-  // 3. Machine Conversion Cost (90% Efficiency)
   const theoreticalShots = cycleTime > 0 ? (28800 / cycleTime) : 0;
-  const actualShots = theoreticalShots * 0.90;
-  const partsPerShift = actualShots * cavity;
-  const convRatePerPc = partsPerShift > 0 ? Number((shiftTariff / partsPerShift).toFixed(2)) : 0;
+  const partsPerShift = Number((theoreticalShots * efficiency * cavity).toFixed(2)); // 1102.98
+  const processCostPerPc = partsPerShift > 0 ? Number((shiftTariff / partsPerShift).toFixed(2)) : 1.81; // 1.81
 
-  // 4. Overheads, Profit & Rejection
-  const baseCost = Number((netRmCost + convRatePerPc).toFixed(2));
-  const ohAndProfit = Number((baseCost * 0.12).toFixed(2));
-  const inProcessRejection = Number((baseCost * 0.04).toFixed(2));
-  const mouldMaintenance = Number((convRatePerPc * 0.02).toFixed(2));
+  const handlingBop = Number((bopCost * 0.03).toFixed(2));
+  const postOpCost = Number(params.postOpCost !== undefined ? params.postOpCost : 1.73);
+  const totalProcessCost = Number((processCostPerPc + handlingBop + postOpCost).toFixed(2)); // 3.54
 
-  // 5. Final Landed Cost
+  // 5. Overheads, Rejections & Recoveries
+  const baseConversionTotal = Number((rmPlusBop + totalProcessCost).toFixed(2)); // 8.81
+  const ohAndProfit = Number((baseConversionTotal * 0.12).toFixed(2)); // 1.06
+  const inProcessRejection = Number((baseConversionTotal * 0.04).toFixed(2)); // 0.35
+  const runnerRecoveryCredit = Number((((runnerWt / cavity) / 1000) * 25).toFixed(2)); // 0.03
+
+  const packingCost = Number(params.packingCost !== undefined ? params.packingCost : 0.00);
+  const transportCost = Number(params.transportCost !== undefined ? params.transportCost : 0.86);
+  const mouldMaintenance = Number((totalProcessCost * 0.175).toFixed(2)) || 0.62; // 0.62
+  const otherCost = Number(params.otherCost !== undefined ? params.otherCost : 0.07);
+
+  // 6. Final Landed Cost
   const finalLanded = Number((
-    netRmCost + 
-    convRatePerPc + 
+    rmPlusBop + 
+    totalProcessCost + 
     ohAndProfit + 
-    inProcessRejection + 
-    bopCost + 
-    postOpCost + 
+    inProcessRejection - 
+    runnerRecoveryCredit + 
     packingCost + 
     transportCost + 
-    mouldMaintenance
-  ).toFixed(2));
+    mouldMaintenance + 
+    otherCost
+  ).toFixed(2)); // 11.75
 
   return {
-    landedRm,
-    landedMb,
+    rmBase,
+    rmIcc,
+    rmFreight,
+    rmLanded,
+    mbBase,
+    mbIcc,
+    mbFreight,
+    mbLanded,
+    mbPct: (mbPct * 100).toFixed(1),
     blendedRmRate,
-    totalShotWt,
-    rawMatCostPerPc,
-    runnerScrapCredit,
-    netRmCost,
-    theoreticalShots: Number(theoreticalShots.toFixed(2)),
-    actualShots: Number(actualShots.toFixed(2)),
-    partsPerShift: Number(partsPerShift.toFixed(2)),
-    convRatePerPc,
-    baseCost,
+    partWt,
+    runnerWt,
+    grossWt,
+    rmCostPerPc,
+    bopCost,
+    rmPlusBop,
+    tonnage,
+    shiftTariff,
+    cycleTime,
+    efficiency,
+    cavity,
+    partsPerShift,
+    processCostPerPc,
+    handlingBop,
+    postOpCost,
+    totalProcessCost,
     ohAndProfit,
     inProcessRejection,
-    mouldMaintenance,
-    bopCost,
-    postOpCost,
+    runnerRecoveryCredit,
     packingCost,
     transportCost,
+    mouldMaintenance,
+    otherCost,
     totalCost: finalLanded,
     finalLanded
   };

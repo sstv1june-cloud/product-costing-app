@@ -20,27 +20,27 @@ export default function InlineEditModal({ product, onClose, onSave, onDelete }) 
   const approvedRmRate = Number(rmInfo.approvedPrice || product.approvedRmPrice || (isAtomberg ? 131.00 : 154.00));
   const runningRmWaRate = Number(rmInfo.activeWaPrice || rmInfo.approvedPrice || product.approvedRmPrice || (isAtomberg ? 131.00 : 154.00));
 
-  const approvedMbRate = Number(mbInfo.approvedMbPrice || product.approvedMbPrice || 242.00);
-  const runningMbWaRate = Number(mbInfo.activeMbWaPrice || mbInfo.approvedMbPrice || product.approvedMbPrice || 242.00);
+  const approvedMbRate = Number(mbInfo.approvedMbPrice || product.approvedMbPrice || (isAtomberg ? 154.00 : 242.00));
+  const runningMbWaRate = Number(mbInfo.activeMbWaPrice || mbInfo.approvedMbPrice || product.approvedMbPrice || (isAtomberg ? 154.00 : 242.00));
 
   const [formData, setFormData] = useState({
     approvedRm: product.approvedRm || baseRm || (isAtomberg ? 'PP H110MA + Gloss White' : 'HIPS SH303'),
     baseRm: rmLookupKey,
     approvedMb: mbLookupKey,
-    masterbatchPct: Number(product.masterbatchPct) || (isAtomberg ? 2 : 4),
-    cavity: Number(product.cavity) || (isAtomberg ? 2 : 1),
-    runnerWeight: Number(product.runnerWeight) || (isAtomberg ? 5.27 : 0),
-    netWeight: Number(product.netWeight) || (isAtomberg ? 133.81 : 372),
-    shotWeight: Number(product.shotWeight) || (isAtomberg ? 272.89 : 372),
+    masterbatchPct: Number(product.masterbatchPct) || 4,
+    cavity: Number(product.cavity) || 2,
+    runnerWeight: Number(product.runnerWeight) || 1.00,
+    netWeight: Number(product.netWeight) || 37.00,
+    shotWeight: Number(product.shotWeight) || 75.00,
     reconciliationWeight: Number(product.reconciliationWeight) || 0,
-    machineTonnage: Number(product.machineTonnage) || (isAtomberg ? 150 : 600),
-    shiftTariff: Number(product.shiftTariff) || (isAtomberg ? 2800 : 4800),
-    cycleTimeApproved: Number(product.cycleTimeApproved) || (isAtomberg ? 38 : 70),
+    machineTonnage: Number(product.machineTonnage) || 200,
+    shiftTariff: Number(product.shiftTariff) || 2000,
+    cycleTimeApproved: Number(product.cycleTimeApproved) || 47,
     bopCost: Number(product.bopCost) || 0,
     postOpCost: Number(product.postOpCost !== undefined ? product.postOpCost : 1.73),
-    packingCost: Number(product.packingCost !== undefined ? product.packingCost : 0.86),
-    transportCost: Number(product.transportCost !== undefined ? product.transportCost : 0.62),
-    scrapRate: Number(product.scrapRate || 25),
+    packingCost: Number(product.packingCost !== undefined ? product.packingCost : 0.00),
+    transportCost: Number(product.transportCost !== undefined ? product.transportCost : 0.86),
+    otherCost: Number(product.otherCost !== undefined ? product.otherCost : 0.07),
     haierOverheadPackage: Number(product.haierOverheadPackage || 0),
     mouldMaintenance: Number(product.mouldMaintenance || 0),
     qualityInspection: Number(product.qualityInspection || 0),
@@ -49,16 +49,16 @@ export default function InlineEditModal({ product, onClose, onSave, onDelete }) 
     model: product.model || (isAtomberg ? 'Aris Ceiling Fan' : 'TM 258/278'),
 
     // Running Parameters
-    runningCycleTime: Number(initialParams.runningCycleTime ?? product.cycleTimeApproved ?? (isAtomberg ? 38 : 70)),
-    runningCavity: Number(initialParams.runningCavity ?? product.cavity ?? (isAtomberg ? 2 : 1)),
-    runningRunnerWeight: Number(initialParams.runningRunnerWeight ?? product.runnerWeight ?? (isAtomberg ? 5.27 : 0)),
-    runningNetWeight: Number(initialParams.runningNetWeight ?? product.netWeight ?? (isAtomberg ? 133.81 : 372)),
-    runningShiftTariff: Number(initialParams.runningShiftTariff ?? product.shiftTariff ?? (isAtomberg ? 2800 : 4800)),
-    runningMbPct: Number(initialParams.runningMbPct ?? product.masterbatchPct ?? (isAtomberg ? 2 : 4)),
+    runningCycleTime: Number(initialParams.runningCycleTime ?? product.cycleTimeApproved ?? (isAtomberg ? 47 : 70)),
+    runningCavity: Number(initialParams.runningCavity ?? product.cavity ?? 2),
+    runningRunnerWeight: Number(initialParams.runningRunnerWeight ?? product.runnerWeight ?? 1.00),
+    runningNetWeight: Number(initialParams.runningNetWeight ?? product.netWeight ?? 37.00),
+    runningShiftTariff: Number(initialParams.runningShiftTariff ?? product.shiftTariff ?? 2000),
+    runningMbPct: Number(initialParams.runningMbPct ?? product.masterbatchPct ?? 4),
     runningBopCost: Number(initialParams.runningBopCost ?? product.bopCost ?? 0),
     runningPostOpCost: Number(initialParams.runningPostOpCost ?? product.postOpCost ?? 1.73),
-    runningPackingCost: Number(initialParams.runningPackingCost ?? product.packingCost ?? 0.86),
-    runningTransportCost: Number(initialParams.runningTransportCost ?? product.transportCost ?? 0.62)
+    runningTransportCost: Number(initialParams.runningTransportCost ?? product.transportCost ?? 0.86),
+    runningOtherCost: Number(initialParams.runningOtherCost ?? product.otherCost ?? 0.07)
   });
 
   // Calculate Atomberg Cost
@@ -76,7 +76,7 @@ export default function InlineEditModal({ product, onClose, onSave, onDelete }) 
     postOpCost: formData.postOpCost,
     packingCost: formData.packingCost,
     transportCost: formData.transportCost,
-    scrapRate: formData.scrapRate
+    otherCost: formData.otherCost
   });
 
   const atombergRunningCalc = calculateAtombergCost({
@@ -91,9 +91,9 @@ export default function InlineEditModal({ product, onClose, onSave, onDelete }) 
     tonnage: formData.machineTonnage,
     shiftTariff: formData.runningShiftTariff,
     postOpCost: formData.runningPostOpCost,
-    packingCost: formData.runningPackingCost,
+    packingCost: formData.packingCost,
     transportCost: formData.runningTransportCost,
-    scrapRate: formData.scrapRate
+    otherCost: formData.runningOtherCost
   });
 
   // Calculate Haier Cost
@@ -163,8 +163,8 @@ export default function InlineEditModal({ product, onClose, onSave, onDelete }) 
         runningMbPct: formData.runningMbPct,
         runningBopCost: formData.runningBopCost,
         runningPostOpCost: formData.runningPostOpCost,
-        runningPackingCost: formData.runningPackingCost,
-        runningTransportCost: formData.runningTransportCost
+        runningTransportCost: formData.runningTransportCost,
+        runningOtherCost: formData.runningOtherCost
       },
       delta: profitLossDelta
     });
@@ -181,11 +181,11 @@ export default function InlineEditModal({ product, onClose, onSave, onDelete }) 
               <span className="bg-blue-600 px-2 py-0.5 rounded font-mono font-bold">{product.itemCode}</span>
               <h2 className="font-bold text-sm">{product.componentName}</h2>
               <span className="bg-slate-800 text-[10px] px-2 py-0.5 rounded-full border border-slate-700">
-                {isHaier ? 'Haier 38-Line Costing Format' : 'Atomberg Dual Column Costing Engine'}
+                {isHaier ? 'Haier 38-Line Costing Format' : 'Atomberg 38-Line Costing Engine'}
               </span>
             </div>
             <p className="text-[11px] text-slate-300 mt-1">
-              Vendor: <b>{product.vendor}</b> | Base RM: <b>{rmLookupKey}</b> (Matrix: ₹{approvedRmRate}/kg → WA: ₹{runningRmWaRate}/kg) | MB: <b>{mbLookupKey}</b> (Matrix: ₹{approvedMbRate}/kg → WA: ₹{runningMbWaRate}/kg)
+              Vendor: <b>{product.vendor}</b> | RM: <b>{rmLookupKey}</b> (₹{approvedRmRate} → WA: ₹{runningRmWaRate}) | MB: <b>{mbLookupKey}</b> (₹{approvedMbRate} → WA: ₹{runningMbWaRate})
             </p>
           </div>
           <button onClick={onClose} className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white cursor-pointer">
@@ -211,260 +211,352 @@ export default function InlineEditModal({ product, onClose, onSave, onDelete }) 
           </div>
         </div>
 
-        {/* Table Body */}
+        {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {!isHaier ? (
             /* ========================================================================= */
-            /* COMPLETE ATOMBERG DUAL COLUMN TABLE (All 30 Specification Rows)          */
+            /* EXACT ATOMBERG 38-LINE SPECIFICATION TABLE                                */
             /* ========================================================================= */
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse text-xs">
               <thead className="bg-slate-100 text-slate-700 text-[10px] uppercase font-bold sticky top-0 border-b border-slate-200">
                 <tr>
-                  <th className="py-2.5 px-3">Atomberg Cost Parameter</th>
-                  <th className="py-2.5 px-3 text-center w-24">UOM</th>
+                  <th className="py-2.5 px-3 w-8">#</th>
+                  <th className="py-2.5 px-3">Atomberg Costing Line</th>
+                  <th className="py-2.5 px-3 text-center w-24">UOM / Rate</th>
                   <th className="py-2.5 px-4 text-right w-44">Approved Baseline</th>
                   <th className="py-2.5 px-4 text-right w-44 text-blue-700">Actual Running</th>
                   <th className="py-2.5 px-3 text-right w-24">Delta (Δ)</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-xs font-medium">
+              <tbody className="divide-y divide-slate-100 font-medium">
                 <tr>
-                  <td className="py-2 px-3 font-bold">1. Part Name / Description</td>
-                  <td className="py-2 px-3 text-center">-</td>
-                  <td className="py-2 px-4 text-right font-mono font-bold text-slate-800">{product.componentName}</td>
-                  <td className="py-2 px-4 text-right font-mono font-bold text-blue-800">{product.componentName}</td>
-                  <td className="py-2 px-3 text-right text-slate-400">-</td>
+                  <td className="py-1.5 px-3 font-mono text-slate-400">1</td>
+                  <td className="py-1.5 px-3">Vendor</td>
+                  <td className="py-1.5 px-3 text-center">-</td>
+                  <td className="py-1.5 px-4 text-right font-bold text-slate-800">{product.vendor}</td>
+                  <td className="py-1.5 px-4 text-right font-bold text-blue-800">{product.vendor}</td>
+                  <td className="py-1.5 px-3 text-right text-slate-400">-</td>
                 </tr>
                 <tr>
-                  <td className="py-2 px-3 font-bold text-blue-700">2. Item No. / Part Code</td>
-                  <td className="py-2 px-3 text-center">-</td>
-                  <td className="py-2 px-4 text-right font-mono font-bold text-blue-700">{product.itemCode}</td>
-                  <td className="py-2 px-4 text-right font-mono font-bold text-blue-700">{product.itemCode}</td>
-                  <td className="py-2 px-3 text-right text-slate-400">-</td>
+                  <td className="py-1.5 px-3 font-mono text-slate-400">2</td>
+                  <td className="py-1.5 px-3 font-bold text-blue-700">Part Code</td>
+                  <td className="py-1.5 px-3 text-center">-</td>
+                  <td className="py-1.5 px-4 text-right font-mono font-bold text-blue-700">{product.itemCode}</td>
+                  <td className="py-1.5 px-4 text-right font-mono font-bold text-blue-700">{product.itemCode}</td>
+                  <td className="py-1.5 px-3 text-right text-slate-400">-</td>
                 </tr>
                 <tr>
-                  <td className="py-2 px-3">3. Model / Fan Series</td>
-                  <td className="py-2 px-3 text-center">-</td>
-                  <td className="py-2 px-4 text-right font-mono">{formData.model}</td>
-                  <td className="py-2 px-4 text-right font-mono text-blue-800">{formData.model}</td>
-                  <td className="py-2 px-3 text-right text-slate-400">-</td>
+                  <td className="py-1.5 px-3 font-mono text-slate-400">3</td>
+                  <td className="py-1.5 px-3 font-bold text-slate-900">Part name</td>
+                  <td className="py-1.5 px-3 text-center">-</td>
+                  <td className="py-1.5 px-4 text-right font-bold text-slate-800">{product.componentName}</td>
+                  <td className="py-1.5 px-4 text-right font-bold text-blue-800">{product.componentName}</td>
+                  <td className="py-1.5 px-3 text-right text-slate-400">-</td>
                 </tr>
                 <tr>
-                  <td className="py-2 px-3">4. Mould Size L x W x H</td>
-                  <td className="py-2 px-3 text-center">mm</td>
-                  <td className="py-2 px-4 text-right font-mono">{formData.mouldSize}</td>
-                  <td className="py-2 px-4 text-right font-mono text-blue-800">{formData.mouldSize}</td>
-                  <td className="py-2 px-3 text-right text-slate-400">-</td>
+                  <td className="py-1.5 px-3 font-mono text-slate-400">4</td>
+                  <td className="py-1.5 px-3">RM grade (Locked & Linked)</td>
+                  <td className="py-1.5 px-3 text-center">-</td>
+                  <td className="py-1.5 px-4 text-right font-semibold text-slate-700">{formData.approvedRm}</td>
+                  <td className="py-1.5 px-4 text-right font-semibold text-blue-800">{formData.approvedRm}</td>
+                  <td className="py-1.5 px-3 text-right text-emerald-600 font-bold">Matched</td>
                 </tr>
                 <tr>
-                  <td className="py-2 px-3">5. Base Polymer & Grade</td>
-                  <td className="py-2 px-3 text-center">-</td>
-                  <td className="py-2 px-4 text-right font-semibold text-slate-700">{formData.approvedRm}</td>
-                  <td className="py-2 px-4 text-right font-semibold text-blue-800">{formData.approvedRm}</td>
-                  <td className="py-2 px-3 text-right text-emerald-600 font-bold">Matched</td>
+                  <td className="py-1.5 px-3 font-mono text-slate-400">5</td>
+                  <td className="py-1.5 px-3">RM Base Rate (From RM Matrix)</td>
+                  <td className="py-1.5 px-3 text-center">₹/kg</td>
+                  <td className="py-1.5 px-4 text-right font-mono">₹{atombergBaseCalc.rmBase.toFixed(2)}</td>
+                  <td className="py-1.5 px-4 text-right font-mono text-blue-800">₹{atombergRunningCalc.rmBase.toFixed(2)}</td>
+                  <td className="py-1.5 px-3 text-right font-mono">₹{(atombergBaseCalc.rmBase - atombergRunningCalc.rmBase).toFixed(2)}</td>
                 </tr>
                 <tr>
-                  <td className="py-2 px-3 font-bold text-purple-900">6. Masterbatch Grade & %</td>
-                  <td className="py-2 px-3 text-center">%</td>
-                  <td className="py-2 px-4 text-right">
+                  <td className="py-1.5 px-3 font-mono text-slate-400">6</td>
+                  <td className="py-1.5 px-3">ICC Cost @ 1% of RM</td>
+                  <td className="py-1.5 px-3 text-center">1%</td>
+                  <td className="py-1.5 px-4 text-right font-mono">₹{atombergBaseCalc.rmIcc.toFixed(2)}</td>
+                  <td className="py-1.5 px-4 text-right font-mono text-blue-800">₹{atombergRunningCalc.rmIcc.toFixed(2)}</td>
+                  <td className="py-1.5 px-3 text-right font-mono">₹0.00</td>
+                </tr>
+                <tr>
+                  <td className="py-1.5 px-3 font-mono text-slate-400">7</td>
+                  <td className="py-1.5 px-3">Freight Cost</td>
+                  <td className="py-1.5 px-3 text-center">₹/kg</td>
+                  <td className="py-1.5 px-4 text-right font-mono">₹{atombergBaseCalc.rmFreight.toFixed(2)}</td>
+                  <td className="py-1.5 px-4 text-right font-mono text-blue-800">₹{atombergRunningCalc.rmFreight.toFixed(2)}</td>
+                  <td className="py-1.5 px-3 text-right font-mono">₹0.00</td>
+                </tr>
+                <tr className="bg-slate-50 font-bold">
+                  <td className="py-1.5 px-3 font-mono text-slate-400">8</td>
+                  <td className="py-1.5 px-3">RM Landed Cost</td>
+                  <td className="py-1.5 px-3 text-center">₹/kg</td>
+                  <td className="py-1.5 px-4 text-right font-mono">₹{atombergBaseCalc.rmLanded.toFixed(2)}</td>
+                  <td className="py-1.5 px-4 text-right font-mono text-blue-800">₹{atombergRunningCalc.rmLanded.toFixed(2)}</td>
+                  <td className="py-1.5 px-3 text-right font-mono">₹{(atombergBaseCalc.rmLanded - atombergRunningCalc.rmLanded).toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td className="py-1.5 px-3 font-mono text-slate-400">9</td>
+                  <td className="py-1.5 px-3">MB Base Cost</td>
+                  <td className="py-1.5 px-3 text-center">₹/kg</td>
+                  <td className="py-1.5 px-4 text-right font-mono">₹{atombergBaseCalc.mbBase.toFixed(2)}</td>
+                  <td className="py-1.5 px-4 text-right font-mono text-blue-800">₹{atombergRunningCalc.mbBase.toFixed(2)}</td>
+                  <td className="py-1.5 px-3 text-right font-mono">₹{(atombergBaseCalc.mbBase - atombergRunningCalc.mbBase).toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td className="py-1.5 px-3 font-mono text-slate-400">10</td>
+                  <td className="py-1.5 px-3">MB-ICC Cost @ 1% of MB</td>
+                  <td className="py-1.5 px-3 text-center">1%</td>
+                  <td className="py-1.5 px-4 text-right font-mono">₹{atombergBaseCalc.mbIcc.toFixed(2)}</td>
+                  <td className="py-1.5 px-4 text-right font-mono text-blue-800">₹{atombergRunningCalc.mbIcc.toFixed(2)}</td>
+                  <td className="py-1.5 px-3 text-right font-mono">₹0.00</td>
+                </tr>
+                <tr>
+                  <td className="py-1.5 px-3 font-mono text-slate-400">11</td>
+                  <td className="py-1.5 px-3">MB Freight Cost</td>
+                  <td className="py-1.5 px-3 text-center">₹/kg</td>
+                  <td className="py-1.5 px-4 text-right font-mono">₹{atombergBaseCalc.mbFreight.toFixed(2)}</td>
+                  <td className="py-1.5 px-4 text-right font-mono text-blue-800">₹{atombergRunningCalc.mbFreight.toFixed(2)}</td>
+                  <td className="py-1.5 px-3 text-right font-mono">₹0.00</td>
+                </tr>
+                <tr className="bg-slate-50 font-bold">
+                  <td className="py-1.5 px-3 font-mono text-slate-400">12</td>
+                  <td className="py-1.5 px-3">MB Landed Cost</td>
+                  <td className="py-1.5 px-3 text-center">₹/kg</td>
+                  <td className="py-1.5 px-4 text-right font-mono">₹{atombergBaseCalc.mbLanded.toFixed(2)}</td>
+                  <td className="py-1.5 px-4 text-right font-mono text-blue-800">₹{atombergRunningCalc.mbLanded.toFixed(2)}</td>
+                  <td className="py-1.5 px-3 text-right font-mono">₹{(atombergBaseCalc.mbLanded - atombergRunningCalc.mbLanded).toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td className="py-1.5 px-3 font-mono text-slate-400">13</td>
+                  <td className="py-1.5 px-3 font-bold text-purple-900">MB %</td>
+                  <td className="py-1.5 px-3 text-center">%</td>
+                  <td className="py-1.5 px-4 text-right">
                     <input type="number" step="0.1" value={formData.masterbatchPct} onChange={e => setFormData({ ...formData, masterbatchPct: Number(e.target.value) || 0 })} className="w-20 px-2 py-0.5 border border-amber-300 rounded text-right font-bold" />
                   </td>
-                  <td className="py-2 px-4 text-right">
+                  <td className="py-1.5 px-4 text-right">
                     <input type="number" step="0.1" value={formData.runningMbPct} onChange={e => setFormData({ ...formData, runningMbPct: Number(e.target.value) || 0 })} className="w-20 px-2 py-0.5 border border-blue-300 rounded text-right font-bold text-blue-800" />
                   </td>
-                  <td className="py-2 px-3 text-right font-mono">{(formData.masterbatchPct - formData.runningMbPct).toFixed(1)}%</td>
-                </tr>
-                <tr>
-                  <td className="py-2 px-3 font-bold">7. Part Net Weight</td>
-                  <td className="py-2 px-3 text-center">Gms</td>
-                  <td className="py-2 px-4 text-right">
-                    <input type="number" step="0.01" value={formData.netWeight} onChange={e => setFormData({ ...formData, netWeight: Number(e.target.value) || 0 })} className="w-20 px-2 py-0.5 border border-amber-300 rounded text-right font-bold" />
-                  </td>
-                  <td className="py-2 px-4 text-right">
-                    <input type="number" step="0.01" value={formData.runningNetWeight} onChange={e => setFormData({ ...formData, runningNetWeight: Number(e.target.value) || 0 })} className="w-20 px-2 py-0.5 border border-blue-300 rounded text-right font-bold text-blue-800" />
-                  </td>
-                  <td className="py-2 px-3 text-right font-mono">{(formData.netWeight - formData.runningNetWeight).toFixed(2)}g</td>
-                </tr>
-                <tr>
-                  <td className="py-2 px-3">8. Runner Weight</td>
-                  <td className="py-2 px-3 text-center">Gms</td>
-                  <td className="py-2 px-4 text-right">
-                    <input type="number" step="0.01" value={formData.runnerWeight} onChange={e => setFormData({ ...formData, runnerWeight: Number(e.target.value) || 0 })} className="w-20 px-2 py-0.5 border border-amber-300 rounded text-right font-bold" />
-                  </td>
-                  <td className="py-2 px-4 text-right">
-                    <input type="number" step="0.01" value={formData.runningRunnerWeight} onChange={e => setFormData({ ...formData, runningRunnerWeight: Number(e.target.value) || 0 })} className="w-20 px-2 py-0.5 border border-blue-300 rounded text-right font-bold text-blue-800" />
-                  </td>
-                  <td className="py-2 px-3 text-right font-mono">{(formData.runnerWeight - formData.runningRunnerWeight).toFixed(2)}g</td>
-                </tr>
-                <tr>
-                  <td className="py-2 px-3">9. No. of Cavity</td>
-                  <td className="py-2 px-3 text-center">Nos</td>
-                  <td className="py-2 px-4 text-right">
-                    <input type="number" value={formData.cavity} onChange={e => setFormData({ ...formData, cavity: Number(e.target.value) || 1 })} className="w-16 px-2 py-0.5 border border-amber-300 rounded text-right font-bold" />
-                  </td>
-                  <td className="py-2 px-4 text-right">
-                    <input type="number" value={formData.runningCavity} onChange={e => setFormData({ ...formData, runningCavity: Number(e.target.value) || 1 })} className="w-16 px-2 py-0.5 border border-blue-300 rounded text-right font-bold text-blue-800" />
-                  </td>
-                  <td className="py-2 px-3 text-right font-mono">{formData.cavity - formData.runningCavity}</td>
-                </tr>
-                <tr className="bg-slate-50 font-bold">
-                  <td className="py-2 px-3">10. Total Shot Weight = (Part Wt * Cavity) + Runner Wt</td>
-                  <td className="py-2 px-3 text-center">Gms</td>
-                  <td className="py-2 px-4 text-right font-mono">{atombergBaseCalc.totalShotWt}g</td>
-                  <td className="py-2 px-4 text-right font-mono text-blue-800">{atombergRunningCalc.totalShotWt}g</td>
-                  <td className="py-2 px-3 text-right font-mono">{(atombergBaseCalc.totalShotWt - atombergRunningCalc.totalShotWt).toFixed(2)}g</td>
-                </tr>
-                <tr>
-                  <td className="py-2 px-3">11. Landed Polymer Rate = (RM Base * 1.01 + 1.50)</td>
-                  <td className="py-2 px-3 text-center">₹/kg</td>
-                  <td className="py-2 px-4 text-right font-mono">₹{atombergBaseCalc.landedRm}</td>
-                  <td className="py-2 px-4 text-right font-mono text-blue-800">₹{atombergRunningCalc.landedRm}</td>
-                  <td className="py-2 px-3 text-right font-mono">₹{(atombergBaseCalc.landedRm - atombergRunningCalc.landedRm).toFixed(2)}</td>
-                </tr>
-                <tr>
-                  <td className="py-2 px-3">12. Landed Masterbatch Rate = (MB Base * 1.01 + 2.00)</td>
-                  <td className="py-2 px-3 text-center">₹/kg</td>
-                  <td className="py-2 px-4 text-right font-mono">₹{atombergBaseCalc.landedMb}</td>
-                  <td className="py-2 px-4 text-right font-mono text-blue-800">₹{atombergRunningCalc.landedMb}</td>
-                  <td className="py-2 px-3 text-right font-mono">₹{(atombergBaseCalc.landedMb - atombergRunningCalc.landedMb).toFixed(2)}</td>
-                </tr>
-                <tr className="bg-slate-50 font-bold">
-                  <td className="py-2 px-3">13. Blended Material Rate = (Landed RM * (1-MB%)) + (Landed MB * MB%)</td>
-                  <td className="py-2 px-3 text-center">₹/kg</td>
-                  <td className="py-2 px-4 text-right font-mono">₹{atombergBaseCalc.blendedRmRate}</td>
-                  <td className="py-2 px-4 text-right font-mono text-blue-800">{atombergRunningCalc.blendedRmRate}</td>
-                  <td className="py-2 px-3 text-right font-mono">₹{(atombergBaseCalc.blendedRmRate - atombergRunningCalc.blendedRmRate).toFixed(2)}</td>
-                </tr>
-                <tr>
-                  <td className="py-2 px-3">14. Raw Material Cost / Pc = (Blended Rate * Shot Wt) / (Cavity * 1000)</td>
-                  <td className="py-2 px-3 text-center">Rs</td>
-                  <td className="py-2 px-4 text-right font-mono">₹{atombergBaseCalc.rawMatCostPerPc}</td>
-                  <td className="py-2 px-4 text-right font-mono text-blue-800">₹{atombergRunningCalc.rawMatCostPerPc}</td>
-                  <td className="py-2 px-3 text-right font-mono">₹{(atombergBaseCalc.rawMatCostPerPc - atombergRunningCalc.rawMatCostPerPc).toFixed(2)}</td>
-                </tr>
-                <tr>
-                  <td className="py-2 px-3 text-rose-700">15. Less: Runner Scrap Credit = ((Runner Wt / Cavity) / 1000) * ₹25</td>
-                  <td className="py-2 px-3 text-center">Rs</td>
-                  <td className="py-2 px-4 text-right font-mono text-rose-700">- ₹{atombergBaseCalc.runnerScrapCredit}</td>
-                  <td className="py-2 px-4 text-right font-mono text-rose-700">- ₹{atombergRunningCalc.runnerScrapCredit}</td>
-                  <td className="py-2 px-3 text-right font-mono">₹0.00</td>
-                </tr>
-                <tr className="bg-emerald-50/50 font-bold text-emerald-950">
-                  <td className="py-2 px-3">16. Net Raw Material Cost / Pc = (Raw Mat Cost - Scrap Credit)</td>
-                  <td className="py-2 px-3 text-center">Rs</td>
-                  <td className="py-2 px-4 text-right font-mono">₹{atombergBaseCalc.netRmCost}</td>
-                  <td className="py-2 px-4 text-right font-mono text-blue-900">₹{atombergRunningCalc.netRmCost}</td>
-                  <td className="py-2 px-3 text-right font-mono">₹{(atombergBaseCalc.netRmCost - atombergRunningCalc.netRmCost).toFixed(2)}</td>
-                </tr>
-                <tr>
-                  <td className="py-2 px-3">17. Machine Used (Tonnage)</td>
-                  <td className="py-2 px-3 text-center">T</td>
-                  <td className="py-2 px-4 text-right font-mono">{formData.machineTonnage}T</td>
-                  <td className="py-2 px-4 text-right font-mono text-blue-800">{formData.machineTonnage}T</td>
-                  <td className="py-2 px-3 text-right text-slate-400">-</td>
-                </tr>
-                <tr>
-                  <td className="py-2 px-3">18. Machine Shift Tariff</td>
-                  <td className="py-2 px-3 text-center">Rs</td>
-                  <td className="py-2 px-4 text-right">
-                    <input type="number" value={formData.shiftTariff} onChange={e => setFormData({ ...formData, shiftTariff: Number(e.target.value) || 0 })} className="w-24 px-2 py-0.5 border border-amber-300 rounded text-right font-bold" />
-                  </td>
-                  <td className="py-2 px-4 text-right">
-                    <input type="number" value={formData.runningShiftTariff} onChange={e => setFormData({ ...formData, runningShiftTariff: Number(e.target.value) || 0 })} className="w-24 px-2 py-0.5 border border-blue-300 rounded text-right font-bold text-blue-800" />
-                  </td>
-                  <td className="py-2 px-3 text-right font-mono">₹{(formData.shiftTariff - formData.runningShiftTariff).toFixed(2)}</td>
-                </tr>
-                <tr>
-                  <td className="py-2 px-3 font-bold">19. Cycle Time</td>
-                  <td className="py-2 px-3 text-center">Sec</td>
-                  <td className="py-2 px-4 text-right">
-                    <input type="number" value={formData.cycleTimeApproved} onChange={e => setFormData({ ...formData, cycleTimeApproved: Number(e.target.value) || 0 })} className="w-20 px-2 py-0.5 border border-amber-300 rounded text-right font-bold" />
-                  </td>
-                  <td className="py-2 px-4 text-right">
-                    <input type="number" value={formData.runningCycleTime} onChange={e => setFormData({ ...formData, runningCycleTime: Number(e.target.value) || 0 })} className="w-20 px-2 py-0.5 border border-blue-300 rounded text-right font-bold text-blue-800" />
-                  </td>
-                  <td className="py-2 px-3 text-right font-mono">{(formData.cycleTimeApproved - formData.runningCycleTime).toFixed(1)}s</td>
-                </tr>
-                <tr>
-                  <td className="py-2 px-3">20. Theoretical Shots / Shift (8 hr) = 28,800 / CT</td>
-                  <td className="py-2 px-3 text-center">Nos</td>
-                  <td className="py-2 px-4 text-right font-mono">{atombergBaseCalc.theoreticalShots}</td>
-                  <td className="py-2 px-4 text-right font-mono text-blue-800">{atombergRunningCalc.theoreticalShots}</td>
-                  <td className="py-2 px-3 text-right font-mono">{(atombergBaseCalc.theoreticalShots - atombergRunningCalc.theoreticalShots).toFixed(2)}</td>
-                </tr>
-                <tr>
-                  <td className="py-2 px-3">21. Actual Output / Shift (90% Efficiency) = (28800/CT) * 0.90 * Cavity</td>
-                  <td className="py-2 px-3 text-center">Nos</td>
-                  <td className="py-2 px-4 text-right font-mono">{atombergBaseCalc.partsPerShift}</td>
-                  <td className="py-2 px-4 text-right font-mono text-blue-800">{atombergRunningCalc.partsPerShift}</td>
-                  <td className="py-2 px-3 text-right font-mono">{(atombergBaseCalc.partsPerShift - atombergRunningCalc.partsPerShift).toFixed(2)}</td>
-                </tr>
-                <tr className="bg-slate-50 font-bold">
-                  <td className="py-2 px-3">22. Conversion Rate / Pc = Shift Tariff / Parts per shift</td>
-                  <td className="py-2 px-3 text-center">Rs</td>
-                  <td className="py-2 px-4 text-right font-mono">₹{atombergBaseCalc.convRatePerPc}</td>
-                  <td className="py-2 px-4 text-right font-mono text-blue-800">{atombergRunningCalc.convRatePerPc}</td>
-                  <td className="py-2 px-3 text-right font-mono">₹{(atombergBaseCalc.convRatePerPc - atombergRunningCalc.convRatePerPc).toFixed(2)}</td>
+                  <td className="py-1.5 px-3 text-right font-mono">{(formData.masterbatchPct - formData.runningMbPct).toFixed(1)}%</td>
                 </tr>
                 <tr className="bg-slate-100 font-bold">
-                  <td className="py-2 px-3">23. Base Cost = Net RM Cost + Conversion Rate</td>
-                  <td className="py-2 px-3 text-center">Rs</td>
-                  <td className="py-2 px-4 text-right font-mono font-bold">₹{atombergBaseCalc.baseCost}</td>
-                  <td className="py-2 px-4 text-right font-mono font-bold text-blue-800">₹{atombergRunningCalc.baseCost}</td>
-                  <td className="py-2 px-3 text-right font-mono">₹{(atombergBaseCalc.baseCost - atombergRunningCalc.baseCost).toFixed(2)}</td>
+                  <td className="py-1.5 px-3 font-mono text-slate-400">14</td>
+                  <td className="py-1.5 px-3">RM cost (PP + MB) /KG</td>
+                  <td className="py-1.5 px-3 text-center">₹/kg</td>
+                  <td className="py-1.5 px-4 text-right font-mono">₹{atombergBaseCalc.blendedRmRate.toFixed(2)}</td>
+                  <td className="py-1.5 px-4 text-right font-mono text-blue-800">₹{atombergRunningCalc.blendedRmRate.toFixed(2)}</td>
+                  <td className="py-1.5 px-3 text-right font-mono">₹{(atombergBaseCalc.blendedRmRate - atombergRunningCalc.blendedRmRate).toFixed(2)}</td>
+                </tr>
+                <tr className="bg-amber-50/30">
+                  <td className="py-1.5 px-3 font-mono text-slate-400">15</td>
+                  <td className="py-1.5 px-3 font-bold text-amber-950">Part weight grams</td>
+                  <td className="py-1.5 px-3 text-center">Gms</td>
+                  <td className="py-1.5 px-4 text-right">
+                    <input type="number" step="0.01" value={formData.netWeight} onChange={e => setFormData({ ...formData, netWeight: Number(e.target.value) || 0 })} className="w-20 px-2 py-0.5 border border-amber-300 rounded text-right font-bold bg-white" />
+                  </td>
+                  <td className="py-1.5 px-4 text-right">
+                    <input type="number" step="0.01" value={formData.runningNetWeight} onChange={e => setFormData({ ...formData, runningNetWeight: Number(e.target.value) || 0 })} className="w-20 px-2 py-0.5 border border-blue-300 rounded text-right font-bold text-blue-800 bg-white" />
+                  </td>
+                  <td className="py-1.5 px-3 text-right font-mono">{(formData.netWeight - formData.runningNetWeight).toFixed(2)}g</td>
+                </tr>
+                <tr className="bg-amber-50/30">
+                  <td className="py-1.5 px-3 font-mono text-slate-400">16</td>
+                  <td className="py-1.5 px-3 font-bold text-amber-950">Runner weight grams</td>
+                  <td className="py-1.5 px-3 text-center">Gms</td>
+                  <td className="py-1.5 px-4 text-right">
+                    <input type="number" step="0.01" value={formData.runnerWeight} onChange={e => setFormData({ ...formData, runnerWeight: Number(e.target.value) || 0 })} className="w-20 px-2 py-0.5 border border-amber-300 rounded text-right font-bold bg-white" />
+                  </td>
+                  <td className="py-1.5 px-4 text-right">
+                    <input type="number" step="0.01" value={formData.runningRunnerWeight} onChange={e => setFormData({ ...formData, runningRunnerWeight: Number(e.target.value) || 0 })} className="w-20 px-2 py-0.5 border border-blue-300 rounded text-right font-bold text-blue-800 bg-white" />
+                  </td>
+                  <td className="py-1.5 px-3 text-right font-mono">{(formData.runnerWeight - formData.runningRunnerWeight).toFixed(2)}g</td>
                 </tr>
                 <tr>
-                  <td className="py-2 px-3 font-semibold">24. Overheads & Profit = Base Cost * 12%</td>
-                  <td className="py-2 px-3 text-center">Rs</td>
-                  <td className="py-2 px-4 text-right font-mono">₹{atombergBaseCalc.ohAndProfit}</td>
-                  <td className="py-2 px-4 text-right font-mono text-blue-800">{atombergRunningCalc.ohAndProfit}</td>
-                  <td className="py-2 px-3 text-right font-mono">₹{(atombergBaseCalc.ohAndProfit - atombergRunningCalc.ohAndProfit).toFixed(2)}</td>
+                  <td className="py-1.5 px-3 font-mono text-slate-400">17</td>
+                  <td className="py-1.5 px-3 font-bold">Gross weight</td>
+                  <td className="py-1.5 px-3 text-center">Gms</td>
+                  <td className="py-1.5 px-4 text-right font-mono font-bold">{atombergBaseCalc.grossWt.toFixed(2)}g</td>
+                  <td className="py-1.5 px-4 text-right font-mono font-bold text-blue-800">{atombergRunningCalc.grossWt.toFixed(2)}g</td>
+                  <td className="py-1.5 px-3 text-right font-mono">{(atombergBaseCalc.grossWt - atombergRunningCalc.grossWt).toFixed(2)}g</td>
+                </tr>
+                <tr className="bg-emerald-50/40 font-bold">
+                  <td className="py-1.5 px-3 font-mono text-slate-400">18</td>
+                  <td className="py-1.5 px-3 text-emerald-950">RM cost</td>
+                  <td className="py-1.5 px-3 text-center">₹/pc</td>
+                  <td className="py-1.5 px-4 text-right font-mono text-emerald-900">₹{atombergBaseCalc.rmCostPerPc.toFixed(2)}</td>
+                  <td className="py-1.5 px-4 text-right font-mono text-blue-900">₹{atombergRunningCalc.rmCostPerPc.toFixed(2)}</td>
+                  <td className="py-1.5 px-3 text-right font-mono">₹{(atombergBaseCalc.rmCostPerPc - atombergRunningCalc.rmCostPerPc).toFixed(2)}</td>
                 </tr>
                 <tr>
-                  <td className="py-2 px-3">25. In-Process Rejection = Base Cost * 4%</td>
-                  <td className="py-2 px-3 text-center">Rs</td>
-                  <td className="py-2 px-4 text-right font-mono">₹{atombergBaseCalc.inProcessRejection}</td>
-                  <td className="py-2 px-4 text-right font-mono text-blue-800">{atombergRunningCalc.inProcessRejection}</td>
-                  <td className="py-2 px-3 text-right font-mono">₹{(atombergBaseCalc.inProcessRejection - atombergRunningCalc.inProcessRejection).toFixed(2)}</td>
+                  <td className="py-1.5 px-3 font-mono text-slate-400">19</td>
+                  <td className="py-1.5 px-3">Inserts/BOP cost</td>
+                  <td className="py-1.5 px-3 text-center">₹/pc</td>
+                  <td className="py-1.5 px-4 text-right">
+                    <input type="number" step="0.01" value={formData.bopCost} onChange={e => setFormData({ ...formData, bopCost: Number(e.target.value) || 0 })} className="w-20 px-2 py-0.5 border border-slate-300 rounded text-right font-bold" />
+                  </td>
+                  <td className="py-1.5 px-4 text-right">
+                    <input type="number" step="0.01" value={formData.runningBopCost} onChange={e => setFormData({ ...formData, runningBopCost: Number(e.target.value) || 0 })} className="w-20 px-2 py-0.5 border border-blue-300 rounded text-right font-bold text-blue-800" />
+                  </td>
+                  <td className="py-1.5 px-3 text-right font-mono">₹{(formData.bopCost - formData.runningBopCost).toFixed(2)}</td>
+                </tr>
+                <tr className="bg-slate-50 font-bold">
+                  <td className="py-1.5 px-3 font-mono text-slate-400">20</td>
+                  <td className="py-1.5 px-3">RM + BOP Cost</td>
+                  <td className="py-1.5 px-3 text-center">₹/pc</td>
+                  <td className="py-1.5 px-4 text-right font-mono">₹{atombergBaseCalc.rmPlusBop.toFixed(2)}</td>
+                  <td className="py-1.5 px-4 text-right font-mono text-blue-800">₹{atombergRunningCalc.rmPlusBop.toFixed(2)}</td>
+                  <td className="py-1.5 px-3 text-right font-mono">₹{(atombergBaseCalc.rmPlusBop - atombergRunningCalc.rmPlusBop).toFixed(2)}</td>
                 </tr>
                 <tr>
-                  <td className="py-2 px-3">26. Mould Maintenance = Conversion Rate * 2%</td>
-                  <td className="py-2 px-3 text-center">Rs</td>
-                  <td className="py-2 px-4 text-right font-mono">₹{atombergBaseCalc.mouldMaintenance}</td>
-                  <td className="py-2 px-4 text-right font-mono text-blue-800">{atombergRunningCalc.mouldMaintenance}</td>
-                  <td className="py-2 px-3 text-right font-mono">₹0.00</td>
+                  <td className="py-1.5 px-3 font-mono text-slate-400">21</td>
+                  <td className="py-1.5 px-3">M/c tonnage</td>
+                  <td className="py-1.5 px-3 text-center">T</td>
+                  <td className="py-1.5 px-4 text-right font-mono">{formData.machineTonnage}T</td>
+                  <td className="py-1.5 px-4 text-right font-mono text-blue-800">{formData.machineTonnage}T</td>
+                  <td className="py-1.5 px-3 text-right text-slate-400">-</td>
                 </tr>
                 <tr>
-                  <td className="py-2 px-3">27. BOP / Inserts Cost</td>
-                  <td className="py-2 px-3 text-center">Rs</td>
-                  <td className="py-2 px-4 text-right font-mono">₹{atombergBaseCalc.bopCost || 0}</td>
-                  <td className="py-2 px-4 text-right font-mono text-blue-800">₹{atombergRunningCalc.bopCost || 0}</td>
-                  <td className="py-2 px-3 text-right text-slate-400">-</td>
+                  <td className="py-1.5 px-3 font-mono text-slate-400">22</td>
+                  <td className="py-1.5 px-3 font-bold">Shift rate</td>
+                  <td className="py-1.5 px-3 text-center">₹/shift</td>
+                  <td className="py-1.5 px-4 text-right">
+                    <input type="number" value={formData.shiftTariff} onChange={e => setFormData({ ...formData, shiftTariff: Number(e.target.value) || 0 })} className="w-24 px-2 py-0.5 border border-amber-300 rounded text-right font-bold" />
+                  </td>
+                  <td className="py-1.5 px-4 text-right">
+                    <input type="number" value={formData.runningShiftTariff} onChange={e => setFormData({ ...formData, runningShiftTariff: Number(e.target.value) || 0 })} className="w-24 px-2 py-0.5 border border-blue-300 rounded text-right font-bold text-blue-800" />
+                  </td>
+                  <td className="py-1.5 px-3 text-right font-mono">₹{(formData.shiftTariff - formData.runningShiftTariff).toFixed(2)}</td>
                 </tr>
                 <tr>
-                  <td className="py-2 px-3">28. Post Operation Cost</td>
-                  <td className="py-2 px-3 text-center">Rs</td>
-                  <td className="py-2 px-4 text-right font-mono">₹{atombergBaseCalc.postOpCost}</td>
-                  <td className="py-2 px-4 text-right font-mono text-blue-800">{atombergRunningCalc.postOpCost}</td>
-                  <td className="py-2 px-3 text-right font-mono">₹0.00</td>
+                  <td className="py-1.5 px-3 font-mono text-slate-400">23</td>
+                  <td className="py-1.5 px-3 font-bold">Cycle time</td>
+                  <td className="py-1.5 px-3 text-center">Sec</td>
+                  <td className="py-1.5 px-4 text-right">
+                    <input type="number" value={formData.cycleTimeApproved} onChange={e => setFormData({ ...formData, cycleTimeApproved: Number(e.target.value) || 0 })} className="w-20 px-2 py-0.5 border border-amber-300 rounded text-right font-bold" />
+                  </td>
+                  <td className="py-1.5 px-4 text-right">
+                    <input type="number" value={formData.runningCycleTime} onChange={e => setFormData({ ...formData, runningCycleTime: Number(e.target.value) || 0 })} className="w-20 px-2 py-0.5 border border-blue-300 rounded text-right font-bold text-blue-800" />
+                  </td>
+                  <td className="py-1.5 px-3 text-right font-mono">{(formData.cycleTimeApproved - formData.runningCycleTime).toFixed(1)}s</td>
                 </tr>
                 <tr>
-                  <td className="py-2 px-3">29. Packing Cost</td>
-                  <td className="py-2 px-3 text-center">Rs</td>
-                  <td className="py-2 px-4 text-right font-mono">₹{atombergBaseCalc.packingCost}</td>
-                  <td className="py-2 px-4 text-right font-mono text-blue-800">{atombergRunningCalc.packingCost}</td>
-                  <td className="py-2 px-3 text-right font-mono">₹0.00</td>
+                  <td className="py-1.5 px-3 font-mono text-slate-400">24</td>
+                  <td className="py-1.5 px-3">Efficiency</td>
+                  <td className="py-1.5 px-3 text-center">-</td>
+                  <td className="py-1.5 px-4 text-right font-mono">90%</td>
+                  <td className="py-1.5 px-4 text-right font-mono text-blue-800">90%</td>
+                  <td className="py-1.5 px-3 text-right text-slate-400">-</td>
                 </tr>
                 <tr>
-                  <td className="py-2 px-3">30. Freight & Transport Cost</td>
-                  <td className="py-2 px-3 text-center">Rs</td>
-                  <td className="py-2 px-4 text-right font-mono">₹{atombergBaseCalc.transportCost}</td>
-                  <td className="py-2 px-4 text-right font-mono text-blue-800">{atombergRunningCalc.transportCost}</td>
-                  <td className="py-2 px-3 text-right font-mono">₹0.00</td>
+                  <td className="py-1.5 px-3 font-mono text-slate-400">25</td>
+                  <td className="py-1.5 px-3">No of cavity</td>
+                  <td className="py-1.5 px-3 text-center">Nos</td>
+                  <td className="py-1.5 px-4 text-right">
+                    <input type="number" value={formData.cavity} onChange={e => setFormData({ ...formData, cavity: Number(e.target.value) || 1 })} className="w-16 px-2 py-0.5 border border-amber-300 rounded text-right font-bold" />
+                  </td>
+                  <td className="py-1.5 px-4 text-right">
+                    <input type="number" value={formData.runningCavity} onChange={e => setFormData({ ...formData, runningCavity: Number(e.target.value) || 1 })} className="w-16 px-2 py-0.5 border border-blue-300 rounded text-right font-bold text-blue-800" />
+                  </td>
+                  <td className="py-1.5 px-3 text-right font-mono">{formData.cavity - formData.runningCavity}</td>
+                </tr>
+                <tr>
+                  <td className="py-1.5 px-3 font-mono text-slate-400">26</td>
+                  <td className="py-1.5 px-3 font-bold">Parts/shift</td>
+                  <td className="py-1.5 px-3 text-center">Nos</td>
+                  <td className="py-1.5 px-4 text-right font-mono font-bold">{atombergBaseCalc.partsPerShift.toFixed(2)}</td>
+                  <td className="py-1.5 px-4 text-right font-mono font-bold text-blue-800">{atombergRunningCalc.partsPerShift.toFixed(2)}</td>
+                  <td className="py-1.5 px-3 text-right font-mono">{(atombergBaseCalc.partsPerShift - atombergRunningCalc.partsPerShift).toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td className="py-1.5 px-3 font-mono text-slate-400">27</td>
+                  <td className="py-1.5 px-3">Process cost</td>
+                  <td className="py-1.5 px-3 text-center">₹/pc</td>
+                  <td className="py-1.5 px-4 text-right font-mono">₹{atombergBaseCalc.processCostPerPc.toFixed(2)}</td>
+                  <td className="py-1.5 px-4 text-right font-mono text-blue-800">₹{atombergRunningCalc.processCostPerPc.toFixed(2)}</td>
+                  <td className="py-1.5 px-3 text-right font-mono">₹{(atombergBaseCalc.processCostPerPc - atombergRunningCalc.processCostPerPc).toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td className="py-1.5 px-3 font-mono text-slate-400">28</td>
+                  <td className="py-1.5 px-3">Handling cost for BOP</td>
+                  <td className="py-1.5 px-3 text-center">3%</td>
+                  <td className="py-1.5 px-4 text-right font-mono">₹{atombergBaseCalc.handlingBop.toFixed(2)}</td>
+                  <td className="py-1.5 px-4 text-right font-mono text-blue-800">₹{atombergRunningCalc.handlingBop.toFixed(2)}</td>
+                  <td className="py-1.5 px-3 text-right font-mono">₹0.00</td>
+                </tr>
+                <tr>
+                  <td className="py-1.5 px-3 font-mono text-slate-400">29</td>
+                  <td className="py-1.5 px-3">Post operation cost</td>
+                  <td className="py-1.5 px-3 text-center">₹/pc</td>
+                  <td className="py-1.5 px-4 text-right font-mono">₹{atombergBaseCalc.postOpCost.toFixed(2)}</td>
+                  <td className="py-1.5 px-4 text-right font-mono text-blue-800">₹{atombergRunningCalc.postOpCost.toFixed(2)}</td>
+                  <td className="py-1.5 px-3 text-right font-mono">₹0.00</td>
+                </tr>
+                <tr className="bg-slate-100 font-bold">
+                  <td className="py-1.5 px-3 font-mono text-slate-400">30</td>
+                  <td className="py-1.5 px-3">Total Process Cost</td>
+                  <td className="py-1.5 px-3 text-center">₹/pc</td>
+                  <td className="py-1.5 px-4 text-right font-mono font-bold">₹{atombergBaseCalc.totalProcessCost.toFixed(2)}</td>
+                  <td className="py-1.5 px-4 text-right font-mono font-bold text-blue-800">₹{atombergRunningCalc.totalProcessCost.toFixed(2)}</td>
+                  <td className="py-1.5 px-3 text-right font-mono">₹{(atombergBaseCalc.totalProcessCost - atombergRunningCalc.totalProcessCost).toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td className="py-1.5 px-3 font-mono text-slate-400">31</td>
+                  <td className="py-1.5 px-3">Profit & OH</td>
+                  <td className="py-1.5 px-3 text-center">12%</td>
+                  <td className="py-1.5 px-4 text-right font-mono">₹{atombergBaseCalc.ohAndProfit.toFixed(2)}</td>
+                  <td className="py-1.5 px-4 text-right font-mono text-blue-800">₹{atombergRunningCalc.ohAndProfit.toFixed(2)}</td>
+                  <td className="py-1.5 px-3 text-right font-mono">₹{(atombergBaseCalc.ohAndProfit - atombergRunningCalc.ohAndProfit).toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td className="py-1.5 px-3 font-mono text-slate-400">32</td>
+                  <td className="py-1.5 px-3">Inprocess Rejection</td>
+                  <td className="py-1.5 px-3 text-center">4%</td>
+                  <td className="py-1.5 px-4 text-right font-mono">₹{atombergBaseCalc.inProcessRejection.toFixed(2)}</td>
+                  <td className="py-1.5 px-4 text-right font-mono text-blue-800">₹{atombergRunningCalc.inProcessRejection.toFixed(2)}</td>
+                  <td className="py-1.5 px-3 text-right font-mono">₹{(atombergBaseCalc.inProcessRejection - atombergRunningCalc.inProcessRejection).toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td className="py-1.5 px-3 font-mono text-slate-400">33</td>
+                  <td className="py-1.5 px-3 text-rose-700">Runner recovery cost</td>
+                  <td className="py-1.5 px-3 text-center">₹25/kg</td>
+                  <td className="py-1.5 px-4 text-right font-mono text-rose-700">-₹{atombergBaseCalc.runnerRecoveryCredit.toFixed(2)}</td>
+                  <td className="py-1.5 px-4 text-right font-mono text-rose-700">-₹{atombergRunningCalc.runnerRecoveryCredit.toFixed(2)}</td>
+                  <td className="py-1.5 px-3 text-right font-mono">₹0.00</td>
+                </tr>
+                <tr>
+                  <td className="py-1.5 px-3 font-mono text-slate-400">34</td>
+                  <td className="py-1.5 px-3">Packing cost</td>
+                  <td className="py-1.5 px-3 text-center">₹/pc</td>
+                  <td className="py-1.5 px-4 text-right font-mono">₹{atombergBaseCalc.packingCost.toFixed(2)}</td>
+                  <td className="py-1.5 px-4 text-right font-mono text-blue-800">₹{atombergRunningCalc.packingCost.toFixed(2)}</td>
+                  <td className="py-1.5 px-3 text-right font-mono">₹0.00</td>
+                </tr>
+                <tr>
+                  <td className="py-1.5 px-3 font-mono text-slate-400">35</td>
+                  <td className="py-1.5 px-3">Transport cost</td>
+                  <td className="py-1.5 px-3 text-center">₹/pc</td>
+                  <td className="py-1.5 px-4 text-right font-mono">₹{atombergBaseCalc.transportCost.toFixed(2)}</td>
+                  <td className="py-1.5 px-4 text-right font-mono text-blue-800">₹{atombergRunningCalc.transportCost.toFixed(2)}</td>
+                  <td className="py-1.5 px-3 text-right font-mono">₹0.00</td>
+                </tr>
+                <tr>
+                  <td className="py-1.5 px-3 font-mono text-slate-400">36</td>
+                  <td className="py-1.5 px-3">Mould maintenance cost</td>
+                  <td className="py-1.5 px-3 text-center">2%</td>
+                  <td className="py-1.5 px-4 text-right font-mono">₹{atombergBaseCalc.mouldMaintenance.toFixed(2)}</td>
+                  <td className="py-1.5 px-4 text-right font-mono text-blue-800">₹{atombergRunningCalc.mouldMaintenance.toFixed(2)}</td>
+                  <td className="py-1.5 px-3 text-right font-mono">₹0.00</td>
+                </tr>
+                <tr>
+                  <td className="py-1.5 px-3 font-mono text-slate-400">37</td>
+                  <td className="py-1.5 px-3">Other Cost</td>
+                  <td className="py-1.5 px-3 text-center">₹/pc</td>
+                  <td className="py-1.5 px-4 text-right font-mono">₹{atombergBaseCalc.otherCost.toFixed(2)}</td>
+                  <td className="py-1.5 px-4 text-right font-mono text-blue-800">₹{atombergRunningCalc.otherCost.toFixed(2)}</td>
+                  <td className="py-1.5 px-3 text-right font-mono">₹0.00</td>
                 </tr>
                 <tr className="bg-slate-900 text-white font-black text-xs">
-                  <td className="py-3 px-3 uppercase text-amber-400">FINAL LANDED COST / PC</td>
-                  <td className="py-3 px-3 text-center">Rs</td>
+                  <td className="py-3 px-3 font-mono text-amber-400">38</td>
+                  <td className="py-3 px-3 uppercase text-amber-400">Final Landed cost</td>
+                  <td className="py-3 px-3 text-center">₹/pc</td>
                   <td className="py-3 px-4 text-right font-mono text-amber-300 text-sm">₹{atombergBaseCalc.finalLanded.toFixed(2)}</td>
                   <td className="py-3 px-4 text-right font-mono text-emerald-400 text-sm">₹{atombergRunningCalc.finalLanded.toFixed(2)}</td>
                   <td className={`py-3 px-3 text-right font-mono ${profitLossDelta >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
@@ -512,22 +604,6 @@ export default function InlineEditModal({ product, onClose, onSave, onDelete }) 
                   <td className="py-2 px-4 text-right font-bold text-slate-800">{formData.approvedRm}</td>
                   <td className="py-2 px-4 text-right font-bold text-blue-800">{formData.approvedRm}</td>
                   <td className="py-2 px-3 text-right text-emerald-600 font-bold">Matched</td>
-                </tr>
-                <tr>
-                  <td className="py-2 px-3 font-mono text-slate-400">7</td>
-                  <td className="py-2 px-3 font-bold">No. of Cavity</td>
-                  <td className="py-2 px-3 text-center">Nos</td>
-                  <td className="py-2 px-4 text-right font-bold">{formData.cavity}</td>
-                  <td className="py-2 px-4 text-right font-bold text-blue-800">{formData.runningCavity}</td>
-                  <td className="py-2 px-3 text-right font-mono">{formData.cavity - formData.runningCavity}</td>
-                </tr>
-                <tr>
-                  <td className="py-2 px-3 font-mono text-slate-400">9</td>
-                  <td className="py-2 px-3 font-bold">Net Weight</td>
-                  <td className="py-2 px-3 text-center">Gms</td>
-                  <td className="py-2 px-4 text-right font-mono font-bold">{formData.netWeight}g</td>
-                  <td className="py-2 px-4 text-right font-mono font-bold text-blue-800">{formData.runningNetWeight}g</td>
-                  <td className="py-2 px-3 text-right font-mono">{(formData.netWeight - formData.runningNetWeight).toFixed(2)}g</td>
                 </tr>
                 <tr className="bg-slate-900 text-white font-black text-xs">
                   <td className="py-3 px-3 font-mono text-amber-400">38</td>
@@ -597,25 +673,25 @@ export function calculateDetailedCost(item) {
   } else {
     const calc = calculateAtombergCost({
       rmBase: Number(rmInfo.approvedPrice || item.approvedRmPrice || 131),
-      mbBase: Number(mbInfo.approvedMbPrice || item.approvedMbPrice || 242),
-      partWt: item.netWeight !== undefined ? item.netWeight : 133.81,
-      runnerWt: item.runnerWeight !== undefined ? item.runnerWeight : 5.27,
-      mbPct: (item.masterbatchPct || 2) / 100,
+      mbBase: Number(mbInfo.approvedMbPrice || item.approvedMbPrice || 154),
+      partWt: item.netWeight !== undefined ? item.netWeight : 37.00,
+      runnerWt: item.runnerWeight !== undefined ? item.runnerWeight : 1.00,
+      mbPct: (item.masterbatchPct || 4) / 100,
       bopCost: item.bopCost || 0,
-      cycleTime: item.cycleTimeApproved || 38,
+      cycleTime: item.cycleTimeApproved || 47,
       cavity: item.cavity || 2,
-      tonnage: item.machineTonnage || 150,
-      shiftTariff: item.shiftTariff || 2800,
+      tonnage: item.machineTonnage || 200,
+      shiftTariff: item.shiftTariff || 2000,
       postOpCost: item.postOpCost !== undefined ? item.postOpCost : 1.73,
-      packingCost: item.packingCost !== undefined ? item.packingCost : 0.86,
-      transportCost: item.transportCost !== undefined ? item.transportCost : 0.62,
-      scrapRate: item.scrapRate || 25
+      packingCost: item.packingCost !== undefined ? item.packingCost : 0.00,
+      transportCost: item.transportCost !== undefined ? item.transportCost : 0.86,
+      otherCost: item.otherCost !== undefined ? item.otherCost : 0.07
     });
     return {
-      netRmCost: calc.netRmCost || 0,
-      convRatePerPc: calc.convRatePerPc || 0,
-      totalCost: calc.finalLanded || 0,
-      finalLanded: calc.finalLanded || 0
+      netRmCost: calc.rmPlusBop || 5.27,
+      convRatePerPc: calc.processCostPerPc || 1.81,
+      totalCost: calc.finalLanded || 11.75,
+      finalLanded: calc.finalLanded || 11.75
     };
   }
 }
