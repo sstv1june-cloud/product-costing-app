@@ -9,8 +9,7 @@ import {
   CheckCircle2, 
   ChevronLeft, 
   ChevronRight,
-  X,
-  FileSpreadsheet
+  X
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { 
@@ -34,7 +33,6 @@ export default function BaselineMasterPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [editingProduct, setEditingProduct] = useState(null);
   
-  // Staging Modal States (Pic 2 Format)
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [stagedData, setStagedData] = useState([]);
   const [selectedStagedIndex, setSelectedStagedIndex] = useState(0);
@@ -85,10 +83,10 @@ export default function BaselineMasterPage() {
       ...prod,
       baseRm: rmLookupKey,
       approvedMb: mbLookupKey,
-      approvedRmPrice: Number(rmMap.approvedPrice || 0),
-      activeRmWaPrice: Number(rmMap.activeWaPrice || rmMap.approvedPrice || 0),
-      approvedMbPrice: Number(mbMap.approvedMbPrice || 0),
-      activeMbWaPrice: Number(mbMap.activeMbWaPrice || mbMap.approvedMbPrice || 0)
+      approvedRmPrice: Number(rmMap.approvedPrice || prod.approvedRmPrice || 0),
+      activeRmWaPrice: Number(rmMap.activeWaPrice || rmMap.approvedPrice || prod.approvedRmPrice || 0),
+      approvedMbPrice: Number(mbMap.approvedMbPrice || prod.approvedMbPrice || 0),
+      activeMbWaPrice: Number(mbMap.activeMbWaPrice || mbMap.approvedMbPrice || prod.approvedMbPrice || 0)
     });
   };
 
@@ -119,7 +117,10 @@ export default function BaselineMasterPage() {
       const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
 
       const parsed = [];
-      if (data.length > 5) {
+      const isHaierVendor = selectedVendor.toLowerCase().includes('haier');
+
+      // Check for Haier vertical multi-column format (parts are across columns)
+      if (isHaierVendor && data.length > 5 && (data[0]?.[1] === 'Description' || data[1]?.[1] === 'Name Of component')) {
         const totalCols = (data[0] || []).length;
         for (let c = 3; c < totalCols; c++) {
           const compName = data[1]?.[c];
@@ -259,6 +260,68 @@ export default function BaselineMasterPage() {
             }
           });
         }
+      } else {
+        // Standard Row-by-Row format (Atomberg & standard parts)
+        const rowJson = XLSX.utils.sheet_to_json(ws);
+        rowJson.forEach((row, idx) => {
+          const itemCode = String(row["Item Code"] || row["Part Code"] || row["Part No"] || row["Item No."] || `ATOM-${idx + 1}`).trim();
+          const compName = String(row["Component Name"] || row["Description"] || row["Name of component"] || itemCode).trim();
+          const rawMat = String(row["Raw Material"] || row["Base Polymer"] || row["Approved RM"] || 'PP H110MA').trim();
+          const { baseRm, mbGrade } = parseMaterialString(rawMat);
+
+          const netWt = parseFloat(row["Net Weight (g)"] || row["Part Weight (g)"] || row["Net Weight"] || row["Part Wt"] || 133.81);
+          const runnerWt = parseFloat(row["Runner Weight (g)"] || row["Runner Weight"] || row["Runner Wt"] || 5.27);
+          const cavity = parseInt(row["Cavity"] || row["No. of Cavity"] || row["No of Cavity"] || 2, 10);
+          const cycleTime = parseFloat(row["Cycle Time (sec)"] || row["Cycle Time"] || row["CT"] || 38);
+          const tonnage = parseInt(row["Machine Tonnage"] || row["Tonnage"] || row["Machine Used"] || 150, 10);
+          const tariff = parseFloat(row["Shift Tariff (₹)"] || row["Shift Tariff"] || row["Tariff"] || 2800);
+          const mbPct = parseFloat(String(row["MB %"] || row["Masterbatch %"] || 2).replace('%','')) || 2;
+          const rmRate = parseFloat(row["RM Rate (₹/kg)"] || row["RM Price"] || 131);
+          const mbRate = parseFloat(row["MB Rate (₹/kg)"] || row["MB Price"] || 242);
+
+          if (baseRm) {
+            addOrUpdateVendorMaterial({
+              vendor: selectedVendor,
+              type: 'RM',
+              approvedCode: baseRm,
+              approvedPrice: rmRate
+            });
+          }
+
+          parsed.push({
+            id: `prod-${itemCode}-${idx}`,
+            vendor: selectedVendor,
+            componentName: compName,
+            mouldSize: String(row["Mould Size"] || '450x450x380').trim(),
+            itemCode: itemCode,
+            model: String(row["Model"] || 'Aris Ceiling Fan').trim(),
+            approvedRm: rawMat,
+            baseRm: baseRm || rawMat,
+            approvedMb: mbGrade || 'White MB',
+            masterbatchPct: mbPct,
+            cavity: cavity,
+            runnerWeight: runnerWt,
+            netWeight: netWt,
+            shotWeight: (netWt * cavity + runnerWt),
+            machineTonnage: tonnage,
+            shiftTariff: tariff,
+            cycleTimeApproved: cycleTime,
+            bopCost: parseFloat(row["BOP Cost"] || 0),
+            postOpCost: parseFloat(row["Post Op Cost"] || 1.73),
+            packingCost: parseFloat(row["Packing Cost"] || 0.86),
+            transportCost: parseFloat(row["Transport Cost"] || 0.62),
+            scrapRate: parseFloat(row["Scrap Rate"] || 25),
+            approvedCost: 0, // Will be computed dynamically
+            parameters: {
+              runningCycleTime: cycleTime,
+              runningCavity: cavity,
+              runningRunnerWeight: runnerWt,
+              runningNetWeight: netWt,
+              runningShiftTariff: tariff,
+              runningMbPct: mbPct
+            }
+          });
+        });
       }
 
       setStagedData(parsed);
@@ -266,17 +329,6 @@ export default function BaselineMasterPage() {
       setShowUploadModal(true);
     };
     reader.readAsBinaryString(file);
-  };
-
-  const handleUpdateActiveStaged = (field, value) => {
-    setStagedData(prev => {
-      const copy = [...prev];
-      copy[selectedStagedIndex] = {
-        ...copy[selectedStagedIndex],
-        [field]: value
-      };
-      return copy;
-    });
   };
 
   const handleCommitStaged = () => {
@@ -308,7 +360,7 @@ export default function BaselineMasterPage() {
                 Active Vendor: {selectedVendor}
               </span>
             </div>
-            <p className="text-[11px] text-slate-300">Synchronized Approved Baseline • Complete 38-Line Spec Matrix • Real-Time RM Matrix Price Binding</p>
+            <p className="text-[11px] text-slate-300">Dual Engine: Atomberg Dual Column & Haier 38-Line Costing</p>
           </div>
         </div>
 
@@ -496,11 +548,10 @@ export default function BaselineMasterPage() {
         />
       )}
 
-      {/* RENDER PIC 2 EXACT STAGING & VERIFICATION MODAL */}
+      {/* RENDER STAGING MODAL */}
       {showUploadModal && activeStaged && (
         <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-xs">
-            {/* 1. Modal Header (Pic 2) */}
             <div className="p-4 bg-white border-b border-slate-200 flex justify-between items-start">
               <div>
                 <div className="flex items-center gap-2">
@@ -510,7 +561,7 @@ export default function BaselineMasterPage() {
                   </h3>
                 </div>
                 <p className="text-[11px] text-slate-500 mt-0.5">
-                  Review full vertical 38 line costing format and make inline parameter corrections before final confirmation.
+                  Review parameters and confirm baseline import.
                 </p>
               </div>
               <button onClick={() => setShowUploadModal(false)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600 cursor-pointer">
@@ -518,311 +569,35 @@ export default function BaselineMasterPage() {
               </button>
             </div>
 
-            {/* 2. Horizontal Part Carousel Tabs (Pic 2) */}
             <div className="bg-slate-100/70 p-2 border-b border-slate-200 flex items-center gap-1.5">
-              <button 
-                onClick={() => scrollTabs(-200)}
-                className="p-1 bg-white hover:bg-slate-200 rounded border border-slate-300 shadow-2xs text-slate-600 cursor-pointer"
-              >
+              <button onClick={() => scrollTabs(-200)} className="p-1 bg-white hover:bg-slate-200 rounded border border-slate-300 shadow-2xs text-slate-600 cursor-pointer">
                 <ChevronLeft className="w-4 h-4" />
               </button>
-
-              <div 
-                ref={tabsContainerRef}
-                className="flex gap-2 overflow-x-auto no-scrollbar py-1 scroll-smooth flex-1"
-                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-              >
-                {stagedData.map((st, idx) => {
-                  const isSelected = idx === selectedStagedIndex;
-                  return (
-                    <button
-                      key={idx}
-                      onClick={() => setSelectedStagedIndex(idx)}
-                      className={`px-3 py-2 rounded-xl text-left border transition-all shrink-0 w-36 cursor-pointer ${
-                        isSelected 
-                          ? 'bg-blue-600 text-white border-blue-700 shadow-md font-bold' 
-                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                      }`}
-                    >
-                      <div className="font-mono text-[10px] leading-tight truncate">{st.itemCode}</div>
-                      <div className="text-[9px] mt-0.5 line-clamp-2 leading-tight opacity-90">{st.componentName}</div>
-                    </button>
-                  );
-                })}
+              <div ref={tabsContainerRef} className="flex gap-2 overflow-x-auto no-scrollbar py-1 scroll-smooth flex-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                {stagedData.map((st, idx) => (
+                  <button key={idx} onClick={() => setSelectedStagedIndex(idx)} className={`px-3 py-2 rounded-xl text-left border transition-all shrink-0 w-36 cursor-pointer ${idx === selectedStagedIndex ? 'bg-blue-600 text-white border-blue-700 shadow-md font-bold' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}>
+                    <div className="font-mono text-[10px] leading-tight truncate">{st.itemCode}</div>
+                    <div className="text-[9px] mt-0.5 line-clamp-2 leading-tight opacity-90">{st.componentName}</div>
+                  </button>
+                ))}
               </div>
-
-              <button 
-                onClick={() => scrollTabs(200)}
-                className="p-1 bg-white hover:bg-slate-200 rounded border border-slate-300 shadow-2xs text-slate-600 cursor-pointer"
-              >
+              <button onClick={() => scrollTabs(200)} className="p-1 bg-white hover:bg-slate-200 rounded border border-slate-300 shadow-2xs text-slate-600 cursor-pointer">
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
 
-            {/* 3. Staged Component & Computed Cost Banner (Pic 2) */}
-            <div className="px-5 py-3 bg-slate-50/90 border-b border-slate-200 flex justify-between items-center">
-              <div>
-                <div className="text-[9px] uppercase font-bold text-slate-400">STAGED COMPONENT & ITEM CODE</div>
-                <div className="text-xs font-bold text-slate-900 font-mono mt-0.5">
-                  [{activeStaged.itemCode}] {activeStaged.componentName}
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-[9px] uppercase font-bold text-emerald-700">COMPUTED STAGED TOTAL COST</div>
-                <div className="text-base font-black font-mono text-emerald-600 mt-0.5">
-                  ₹{Number(activeStaged.approvedCost || 0).toFixed(2)}
-                </div>
+            <div className="p-4 flex-1 overflow-y-auto space-y-2">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 font-mono flex justify-between">
+                <div>[{activeStaged.itemCode}] {activeStaged.componentName}</div>
+                <div className="font-bold text-blue-700">{activeStaged.approvedRm} | CT: {activeStaged.cycleTimeApproved}s</div>
               </div>
             </div>
 
-            {/* 4. Full 38-Line Vertical Specification Table Body (Pic 2) */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-1">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead className="bg-slate-100 text-slate-700 text-[10px] uppercase font-bold sticky top-0 border-b border-slate-200">
-                  <tr>
-                    <th className="py-2 px-3 w-8">#</th>
-                    <th className="py-2 px-3">DESCRIPTION / COSTING LINE</th>
-                    <th className="py-2 px-3 text-center w-24">UOM</th>
-                    <th className="py-2 px-4 text-right w-64">STAGED VALUE (EDITABLE)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
-                  <tr>
-                    <td className="py-2 px-3 font-mono text-slate-400">1</td>
-                    <td className="py-2 px-3 font-bold">Name Of component</td>
-                    <td className="py-2 px-3 text-center">-</td>
-                    <td className="py-2 px-4 text-right font-bold text-slate-800">{activeStaged.componentName}</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 font-mono text-slate-400">2</td>
-                    <td className="py-2 px-3">Mould size L x W x H</td>
-                    <td className="py-2 px-3 text-center">mm</td>
-                    <td className="py-2 px-4 text-right font-mono">{activeStaged.mouldSize}</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 font-mono text-slate-400">3</td>
-                    <td className="py-2 px-3 font-bold text-blue-700">Item No. / Part Code</td>
-                    <td className="py-2 px-3 text-center">-</td>
-                    <td className="py-2 px-4 text-right font-mono font-bold text-blue-700">{activeStaged.itemCode}</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 font-mono text-slate-400">4</td>
-                    <td className="py-2 px-3">Model</td>
-                    <td className="py-2 px-3 text-center">-</td>
-                    <td className="py-2 px-4 text-right font-mono">{activeStaged.model}</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 font-mono text-slate-400">5</td>
-                    <td className="py-2 px-3 font-bold">Raw Material Required</td>
-                    <td className="py-2 px-3 text-center">-</td>
-                    <td className="py-2 px-4 text-right font-bold text-slate-800">{activeStaged.approvedRm}</td>
-                  </tr>
-                  <tr className="bg-purple-50/40">
-                    <td className="py-2 px-3 font-mono text-slate-400">6</td>
-                    <td className="py-2 px-3 font-bold text-purple-900">Master Batch Required (%)</td>
-                    <td className="py-2 px-3 text-center">%</td>
-                    <td className="py-2 px-4 text-right">
-                      <input 
-                        type="number" 
-                        step="0.1" 
-                        value={activeStaged.masterbatchPct} 
-                        onChange={e => handleUpdateActiveStaged('masterbatchPct', parseFloat(e.target.value) || 0)} 
-                        className="w-24 px-2 py-0.5 border border-purple-300 rounded text-right font-bold text-purple-900 bg-white" 
-                      />
-                    </td>
-                  </tr>
-                  <tr className="bg-amber-50/30">
-                    <td className="py-2 px-3 font-mono text-slate-400">7</td>
-                    <td className="py-2 px-3 font-bold text-amber-950">No. of Cavity</td>
-                    <td className="py-2 px-3 text-center">Nos</td>
-                    <td className="py-2 px-4 text-right">
-                      <input 
-                        type="number" 
-                        value={activeStaged.cavity} 
-                        onChange={e => handleUpdateActiveStaged('cavity', parseInt(e.target.value, 10) || 1)} 
-                        className="w-24 px-2 py-0.5 border border-amber-300 rounded text-right font-bold bg-white" 
-                      />
-                    </td>
-                  </tr>
-                  <tr className="bg-amber-50/30">
-                    <td className="py-2 px-3 font-mono text-slate-400">8</td>
-                    <td className="py-2 px-3 font-bold text-amber-950">Runner Weight</td>
-                    <td className="py-2 px-3 text-center">Gms</td>
-                    <td className="py-2 px-4 text-right">
-                      <input 
-                        type="number" 
-                        value={activeStaged.runnerWeight} 
-                        onChange={e => handleUpdateActiveStaged('runnerWeight', parseFloat(e.target.value) || 0)} 
-                        className="w-24 px-2 py-0.5 border border-amber-300 rounded text-right font-bold bg-white" 
-                      />
-                    </td>
-                  </tr>
-                  <tr className="bg-amber-50/30">
-                    <td className="py-2 px-3 font-mono text-slate-400">9</td>
-                    <td className="py-2 px-3 font-bold text-amber-950">Net Weight</td>
-                    <td className="py-2 px-3 text-center">Gms</td>
-                    <td className="py-2 px-4 text-right">
-                      <input 
-                        type="number" 
-                        value={activeStaged.netWeight} 
-                        onChange={e => handleUpdateActiveStaged('netWeight', parseFloat(e.target.value) || 0)} 
-                        className="w-24 px-2 py-0.5 border border-amber-300 rounded text-right font-bold bg-white" 
-                      />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 font-mono text-slate-400">10</td>
-                    <td className="py-2 px-3">Shot Weight</td>
-                    <td className="py-2 px-3 text-center">Gms</td>
-                    <td className="py-2 px-4 text-right font-mono font-bold">{activeStaged.shotWeight}g</td>
-                  </tr>
-                  <tr className="bg-slate-50">
-                    <td className="py-2 px-3 font-mono text-slate-400">11</td>
-                    <td className="py-2 px-3 font-bold text-slate-900">Reconciliation Weight (Shot + 1% Loss)</td>
-                    <td className="py-2 px-3 text-center">Gms</td>
-                    <td className="py-2 px-4 text-right font-mono font-black text-slate-900">{activeStaged.reconciliationWeight}g</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 font-mono text-slate-400">12</td>
-                    <td className="py-2 px-3">Raw Material Cost</td>
-                    <td className="py-2 px-3 text-center">Rs</td>
-                    <td className="py-2 px-4 text-right font-mono">₹{Number(activeStaged.rawMaterialCost || 0).toFixed(4)}</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 font-mono text-slate-400">13</td>
-                    <td className="py-2 px-3">Master batch cost</td>
-                    <td className="py-2 px-3 text-center">Rs</td>
-                    <td className="py-2 px-4 text-right font-mono">₹{Number(activeStaged.masterbatchCost || 0).toFixed(4)}</td>
-                  </tr>
-                  <tr className="bg-slate-50 font-bold">
-                    <td className="py-2 px-3 font-mono text-slate-400">15</td>
-                    <td className="py-2 px-3 text-slate-900">Total Raw Material Cost</td>
-                    <td className="py-2 px-3 text-center">Rs</td>
-                    <td className="py-2 px-4 text-right font-mono font-black text-slate-900">₹{Number(activeStaged.totalRmCost || 0).toFixed(4)}</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 font-mono text-slate-400">16</td>
-                    <td className="py-2 px-3">Machine Used (Tonnage)</td>
-                    <td className="py-2 px-3 text-center">T</td>
-                    <td className="py-2 px-4 text-right">
-                      <input 
-                        type="number" 
-                        value={activeStaged.machineTonnage} 
-                        onChange={e => handleUpdateActiveStaged('machineTonnage', parseInt(e.target.value, 10) || 0)} 
-                        className="w-24 px-2 py-0.5 border border-slate-300 rounded text-right font-bold bg-white" 
-                      />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 font-mono text-slate-400">17</td>
-                    <td className="py-2 px-3 font-bold">Machine Tariff per Shift</td>
-                    <td className="py-2 px-3 text-center">Rs</td>
-                    <td className="py-2 px-4 text-right">
-                      <input 
-                        type="number" 
-                        value={activeStaged.shiftTariff} 
-                        onChange={e => handleUpdateActiveStaged('shiftTariff', parseFloat(e.target.value) || 0)} 
-                        className="w-24 px-2 py-0.5 border border-slate-300 rounded text-right font-bold bg-white" 
-                      />
-                    </td>
-                  </tr>
-                  <tr className="bg-amber-50/50">
-                    <td className="py-2 px-3 font-mono text-slate-400">18</td>
-                    <td className="py-2 px-3 font-black text-amber-950">Cycle Time</td>
-                    <td className="py-2 px-3 text-center">Sec</td>
-                    <td className="py-2 px-4 text-right">
-                      <input 
-                        type="number" 
-                        value={activeStaged.cycleTimeApproved} 
-                        onChange={e => handleUpdateActiveStaged('cycleTimeApproved', parseFloat(e.target.value) || 0)} 
-                        className="w-24 px-2 py-0.5 border border-amber-400 rounded text-right font-black text-amber-950 bg-white" 
-                      />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 font-mono text-slate-400">19</td>
-                    <td className="py-2 px-3">No of Shot / Shift (8Hour)</td>
-                    <td className="py-2 px-3 text-center">Nos</td>
-                    <td className="py-2 px-4 text-right font-mono">{Number(activeStaged.shotsShift8h || 0).toFixed(2)}</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 font-mono text-slate-400">20</td>
-                    <td className="py-2 px-3">No of Shot / Shift with 95% Efficiency</td>
-                    <td className="py-2 px-3 text-center">Nos</td>
-                    <td className="py-2 px-4 text-right font-mono">{Number(activeStaged.shotsShift95Eff || 0).toFixed(2)}</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 font-mono text-slate-400">21</td>
-                    <td className="py-2 px-3">No. of component / shift</td>
-                    <td className="py-2 px-3 text-center">Nos</td>
-                    <td className="py-2 px-4 text-right font-mono font-bold">{Number(activeStaged.partsPerShift || 0).toFixed(2)}</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 font-mono text-slate-400">22</td>
-                    <td className="py-2 px-3 font-bold">Production Cost / Pc</td>
-                    <td className="py-2 px-3 text-center">Rs</td>
-                    <td className="py-2 px-4 text-right font-mono font-bold">₹{Number(activeStaged.productionCostPerPc || 0).toFixed(4)}</td>
-                  </tr>
-                  <tr className="bg-slate-100 font-black">
-                    <td className="py-2 px-3 font-mono text-slate-400">23</td>
-                    <td className="py-2 px-3 uppercase text-slate-900">SUB TOTAL</td>
-                    <td className="py-2 px-3 text-center">Rs</td>
-                    <td className="py-2 px-4 text-right font-mono font-black text-slate-900">₹{Number(activeStaged.subTotal || 0).toFixed(4)}</td>
-                  </tr>
-                  <tr className="bg-purple-50/40">
-                    <td className="py-2 px-3 font-mono text-slate-400">24</td>
-                    <td className="py-2 px-3 font-bold text-purple-950">OH + Profit + ICC + Rejection + Packaging + Freight</td>
-                    <td className="py-2 px-3 text-center">Rs</td>
-                    <td className="py-2 px-4 text-right">
-                      <input 
-                        type="number" 
-                        step="0.0001" 
-                        value={activeStaged.haierOverheadPackage} 
-                        onChange={e => handleUpdateActiveStaged('haierOverheadPackage', parseFloat(e.target.value) || 0)} 
-                        className="w-28 px-2 py-0.5 border border-purple-300 rounded text-right font-bold text-purple-900 bg-white" 
-                      />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 font-mono text-slate-400">34</td>
-                    <td className="py-2 px-3 font-bold">Mould Maintenance Provision</td>
-                    <td className="py-2 px-3 text-center">Rs</td>
-                    <td className="py-2 px-4 text-right font-mono font-bold">{activeStaged.mouldMaintenance}</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 font-mono text-slate-400">35</td>
-                    <td className="py-2 px-3 font-bold">Quality Inspection Cost</td>
-                    <td className="py-2 px-3 text-center">Rs</td>
-                    <td className="py-2 px-4 text-right font-mono font-bold">{activeStaged.qualityInspection}</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 font-mono text-slate-400">36</td>
-                    <td className="py-2 px-3 font-bold text-rose-700">ICC Reduce by .5% (Payment term change 60 to 45 days)</td>
-                    <td className="py-2 px-3 text-center">Rs</td>
-                    <td className="py-2 px-4 text-right font-mono font-bold text-rose-700">{activeStaged.iccReduce}</td>
-                  </tr>
-                  <tr className="bg-slate-900 text-white font-black">
-                    <td className="py-2.5 px-3 font-mono text-amber-400">38</td>
-                    <td className="py-2.5 px-3 uppercase text-amber-400">TOTAL COST</td>
-                    <td className="py-2.5 px-3 text-center">Rs</td>
-                    <td className="py-2.5 px-4 text-right font-mono text-amber-300 text-sm">₹{Number(activeStaged.approvedCost || 0).toFixed(2)}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            {/* 5. Modal Footer Actions (Pic 2) */}
             <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
-              <button 
-                onClick={() => setShowUploadModal(false)} 
-                className="px-5 py-2.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 rounded-xl font-bold cursor-pointer transition shadow-2xs"
-              >
+              <button onClick={() => setShowUploadModal(false)} className="px-5 py-2.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 rounded-xl font-bold cursor-pointer">
                 Cancel Staging
               </button>
-              <button 
-                onClick={handleCommitStaged} 
-                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center gap-2 cursor-pointer shadow-md transition text-xs"
-              >
+              <button onClick={handleCommitStaged} className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center gap-2 cursor-pointer shadow-md text-xs">
                 <CheckCircle2 className="w-4 h-4" /> Confirm & Add All Staged Products ({stagedData.length})
               </button>
             </div>

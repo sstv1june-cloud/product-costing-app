@@ -5,39 +5,43 @@
 export function calculateAtombergCost(params = {}) {
   const rmBase = Number(params.rmBase || 0);
   const mbBase = Number(params.mbBase || 0);
-  const partWt = Number(params.partWt || 37);
-  const runnerWt = Number(params.runnerWt || 1);
-  const mbPct = Number(params.mbPct || 0.04);
+  const partWt = Number(params.partWt !== undefined ? params.partWt : (params.netWeight || 133.81));
+  const runnerWt = Number(params.runnerWt !== undefined ? params.runnerWt : (params.runnerWeight || 5.27));
+  const mbPct = Number(params.mbPct !== undefined ? params.mbPct : ((Number(params.masterbatchPct) || 2) / 100));
   const bopCost = Number(params.bopCost || 0);
-  const cycleTime = Number(params.cycleTime || 47);
-  const cavity = Number(params.cavity || 2);
-  const tonnage = Number(params.tonnage || 200);
-  const shiftTariff = Number(params.shiftTariff || 2000);
+  const cycleTime = Number(params.cycleTime !== undefined ? params.cycleTime : (params.cycleTimeApproved || 38));
+  const cavity = Number(params.cavity || 1);
+  const tonnage = Number(params.tonnage || params.machineTonnage || 150);
+  const shiftTariff = Number(params.shiftTariff || 2800);
   const postOpCost = Number(params.postOpCost || 1.73);
   const packingCost = Number(params.packingCost || 0.86);
   const transportCost = Number(params.transportCost || 0.62);
   const scrapRate = Number(params.scrapRate || 25);
 
+  // 1. Landed Material Rates
   const landedRm = Number((rmBase * 1.01 + 1.50).toFixed(2));
   const landedMb = Number((mbBase * 1.01 + 2.00).toFixed(2));
   const blendedRmRate = Number(((landedRm * (1 - mbPct)) + (landedMb * mbPct)).toFixed(2));
 
-  const totalShotWt = (partWt * cavity) + runnerWt;
+  // 2. Shot Weight & Raw Material Cost
+  const totalShotWt = Number(((partWt * cavity) + runnerWt).toFixed(2));
   const rawMatCostPerPc = cavity > 0 ? Number(((blendedRmRate * totalShotWt) / (cavity * 1000)).toFixed(2)) : 0;
-
   const runnerScrapCredit = cavity > 0 ? Number((((runnerWt / cavity) / 1000) * scrapRate).toFixed(2)) : 0;
   const netRmCost = Number((rawMatCostPerPc - runnerScrapCredit).toFixed(2));
 
+  // 3. Machine Conversion Cost (90% Efficiency)
   const theoreticalShots = cycleTime > 0 ? (28800 / cycleTime) : 0;
   const actualShots = theoreticalShots * 0.90;
   const partsPerShift = actualShots * cavity;
   const convRatePerPc = partsPerShift > 0 ? Number((shiftTariff / partsPerShift).toFixed(2)) : 0;
 
+  // 4. Overheads, Profit & Rejection
   const baseCost = Number((netRmCost + convRatePerPc).toFixed(2));
   const ohAndProfit = Number((baseCost * 0.12).toFixed(2));
   const inProcessRejection = Number((baseCost * 0.04).toFixed(2));
   const mouldMaintenance = Number((convRatePerPc * 0.02).toFixed(2));
 
+  // 5. Final Landed Cost
   const finalLanded = Number((
     netRmCost + 
     convRatePerPc + 
@@ -58,10 +62,18 @@ export function calculateAtombergCost(params = {}) {
     rawMatCostPerPc,
     runnerScrapCredit,
     netRmCost,
+    theoreticalShots: Number(theoreticalShots.toFixed(2)),
+    actualShots: Number(actualShots.toFixed(2)),
+    partsPerShift: Number(partsPerShift.toFixed(2)),
     convRatePerPc,
+    baseCost,
     ohAndProfit,
     inProcessRejection,
     mouldMaintenance,
+    bopCost,
+    postOpCost,
+    packingCost,
+    transportCost,
     totalCost: finalLanded,
     finalLanded
   };
@@ -90,7 +102,6 @@ export function calculateHaierCost(params = {}) {
   const cycleTime = Number(params.cycleTime) || 70;
   const shiftTariff = Number(params.shiftTariff) || 4800;
   
-  // Use parsed partsPerShift if provided; else calculate with 95% efficiency
   const partsPerShift = Number(params.partsPerShift) > 0 
     ? Number(params.partsPerShift) 
     : (cycleTime > 0 ? ((28800 / cycleTime) * 0.95 * cavity) : 0);
@@ -98,7 +109,6 @@ export function calculateHaierCost(params = {}) {
   const productionCostPerPc = partsPerShift > 0 ? Number((shiftTariff / partsPerShift).toFixed(4)) : (Number(params.productionCostPerPc) || 0);
   const subTotal = Number((totalRmCost + productionCostPerPc).toFixed(4));
 
-  // Overhead & Secondary Operations (Lines 24-33)
   const haierOverheadPackage = Number(params.haierOverheadPackage || 0);
   const foamPolybag = Number(params.foamPolybag || 0);
   const plasticBin = Number(params.plasticBin || 0);
@@ -110,13 +120,11 @@ export function calculateHaierCost(params = {}) {
   const assemblyCost = Number(params.assemblyCost || 0);
   const bopCost = Number(params.bopCost || 0);
 
-  // Maintenance, Inspection, ICC, and Scrap adjustments (Lines 34-37)
   const mouldMaintenance = Number(params.mouldMaintenance || 0);
   const qualityInspection = Number(params.qualityInspection || 0);
   const iccReduce = Number(params.iccReduce || 0);
   const scrapAdj = Number(params.scrapAdj || 0);
 
-  // Line 38 Total Landed Cost
   const totalCost = Number((
     subTotal + 
     haierOverheadPackage + 
