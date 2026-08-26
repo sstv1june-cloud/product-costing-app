@@ -122,101 +122,85 @@ export default function BaselineMasterPage() {
       const parsed = [];
       const isHaierVendor = selectedVendor.toLowerCase().includes('haier');
 
-      // Check if sheet is VERTICAL (labels in Column A/B and parts in Column C, D, E...)
-      let isVerticalSheet = false;
-      const colA_B_text = rawMatrix.slice(0, 25).map(r => `${r[0] || ''} ${r[1] || ''}`).join(' ').toLowerCase();
-      
-      if (
-        colA_B_text.includes('part name') || 
-        colA_B_text.includes('name of component') || 
-        colA_B_text.includes('description') || 
-        colA_B_text.includes('rm grade') || 
-        colA_B_text.includes('cycle time') || 
-        colA_B_text.includes('net weight') || 
-        colA_B_text.includes('mould size')
-      ) {
-        isVerticalSheet = true;
-      }
+      // Scan rows to find exact parameter positions by text label in Col A or Col B
+      const labelRowMap = {};
+      rawMatrix.forEach((r, rIdx) => {
+        const rowText = `${r[0] || ''} ${r[1] || ''}`.toLowerCase();
+        
+        if (rowText.includes('part code') || rowText.includes('item no') || rowText.includes('item code') || rowText.includes('part no')) {
+          if (labelRowMap.partCode === undefined) labelRowMap.partCode = rIdx;
+        }
+        if (rowText.includes('part name') || rowText.includes('name of component') || rowText.includes('component name') || (rowText.includes('description') && !rowText.includes('grade'))) {
+          if (labelRowMap.partName === undefined) labelRowMap.partName = rIdx;
+        }
+        if (rowText.includes('model') && labelRowMap.model === undefined) labelRowMap.model = rIdx;
+        if (rowText.includes('mould size') || rowText.includes('mold size')) labelRowMap.mould = rIdx;
+        if ((rowText.includes('raw material') || rowText.includes('rm grade') || rowText.includes('base polymer')) && !rowText.includes('cost') && !rowText.includes('rate')) {
+          if (labelRowMap.rmGrade === undefined) labelRowMap.rmGrade = rIdx;
+        }
+        if (rowText.includes('master batch') || rowText.includes('masterbatch') || rowText.includes('mb %')) {
+          if (labelRowMap.mbPct === undefined) labelRowMap.mbPct = rIdx;
+        }
+        if (rowText.includes('cavity') || rowText.includes('cavities')) labelRowMap.cavity = rIdx;
+        if ((rowText.includes('runner weight') || rowText.includes('runner wt')) && !rowText.includes('recovery')) labelRowMap.runnerWt = rIdx;
+        if (rowText.includes('net weight') || rowText.includes('part weight') || rowText.includes('net wt')) labelRowMap.netWt = rIdx;
+        if (rowText.includes('shot weight') || rowText.includes('shot wt')) labelRowMap.shotWt = rIdx;
+        if (rowText.includes('cycle time') || rowText.includes('ct (s)') || rowText.includes('ct')) labelRowMap.ct = rIdx;
+        if (rowText.includes('machine used') || rowText.includes('tonnage')) labelRowMap.tonnage = rIdx;
+        if (rowText.includes('machine tariff') || rowText.includes('shift tariff')) labelRowMap.tariff = rIdx;
+        if (rowText.includes('rm base rate') || rowText.includes('raw material cost') || rowText.includes('rm rate')) labelRowMap.rmRate = rIdx;
+        if (rowText.includes('mb rate') || rowText.includes('master batch cost')) labelRowMap.mbRate = rIdx;
+        if (rowText.includes('total cost') || rowText.includes('landed cost')) labelRowMap.totalCost = rIdx;
+      });
 
-      if (isVerticalSheet) {
-        // Find row index mapping in column A/B
-        const rowMap = {};
-        rawMatrix.forEach((r, idx) => {
-          const rowLabel = `${r[0] || ''} ${r[1] || ''}`.toLowerCase().replace(/[^a-z0-9]/g, '');
-          if (rowLabel.includes('name') || rowLabel.includes('component') || rowLabel.includes('description')) {
-            if (rowMap.name === undefined) rowMap.name = idx;
-          }
-          if (rowLabel.includes('mouldsize') || rowLabel.includes('moldsize') || rowLabel.includes('dimension')) rowMap.mould = idx;
-          if (rowLabel.includes('itemno') || rowLabel.includes('partno') || rowLabel.includes('partcode') || rowLabel.includes('itemcode')) rowMap.itemCode = idx;
-          if (rowLabel.includes('model')) rowMap.model = idx;
-          if (rowLabel.includes('rawmaterial') || rowLabel.includes('rmgrade') || rowLabel.includes('basepolymer') || rowLabel.includes('material')) rowMap.rm = idx;
-          if (rowLabel.includes('masterbatch') || rowLabel.includes('mb') || rowLabel.includes('mbpercentage')) rowMap.mbPct = idx;
-          if (rowLabel.includes('cavity') || rowLabel.includes('cavities')) rowMap.cavity = idx;
-          if (rowLabel.includes('runnerweight') || rowLabel.includes('runnerwt')) rowMap.runnerWt = idx;
-          if (rowLabel.includes('netweight') || rowLabel.includes('partweight') || rowLabel.includes('netwt') || rowLabel.includes('partwt')) rowMap.netWt = idx;
-          if (rowLabel.includes('shotweight') || rowLabel.includes('shotwt')) rowMap.shotWt = idx;
-          if (rowLabel.includes('reconciliation')) rowMap.reconWt = idx;
-          if (rowLabel.includes('rawmaterialcost') || rowLabel.includes('rmbaserate') || rowLabel.includes('rmrate')) rowMap.rmCost = idx;
-          if (rowLabel.includes('masterbatchcost') || rowLabel.includes('mbrate')) rowMap.mbCost = idx;
-          if (rowLabel.includes('tonnage') || rowLabel.includes('machineused')) rowMap.tonnage = idx;
-          if (rowLabel.includes('machinetariff') || rowLabel.includes('tariff')) rowMap.tariff = idx;
-          if (rowLabel.includes('cycletime') || rowLabel.includes('ct')) rowMap.ct = idx;
-          if (rowLabel.includes('overhead') || rowLabel.includes('ohprofit')) rowMap.overhead = idx;
-          if (rowLabel.includes('totalcost') || rowLabel.includes('landedcost')) rowMap.totalCost = idx;
-        });
+      // Check if vertical parameter layout
+      const isVertical = labelRowMap.partName !== undefined || labelRowMap.partCode !== undefined || labelRowMap.netWt !== undefined;
 
-        // Fallbacks for standard Haier / Atomberg indexes if rowMap missed any
-        const nameRow = rowMap.name !== undefined ? rowMap.name : (isHaierVendor ? 1 : 0);
-        const itemCodeRow = rowMap.itemCode !== undefined ? rowMap.itemCode : (isHaierVendor ? 3 : 2);
-        const rmRow = rowMap.rm !== undefined ? rowMap.rm : (isHaierVendor ? 5 : 4);
-        const mbRow = rowMap.mbPct !== undefined ? rowMap.mbPct : (isHaierVendor ? 6 : 5);
-        const cavityRow = rowMap.cavity !== undefined ? rowMap.cavity : (isHaierVendor ? 7 : 6);
-        const runnerRow = rowMap.runnerWt !== undefined ? rowMap.runnerWt : (isHaierVendor ? 8 : 7);
-        const netWtRow = rowMap.netWt !== undefined ? rowMap.netWt : (isHaierVendor ? 9 : 8);
-        const tonnageRow = rowMap.tonnage !== undefined ? rowMap.tonnage : (isHaierVendor ? 16 : 15);
-        const tariffRow = rowMap.tariff !== undefined ? rowMap.tariff : (isHaierVendor ? 17 : 16);
-        const ctRow = rowMap.ct !== undefined ? rowMap.ct : (isHaierVendor ? 18 : 17);
-        const totalCostRow = rowMap.totalCost !== undefined ? rowMap.totalCost : (isHaierVendor ? 38 : 35);
-
-        // Find starting data column (usually column 2 or 3)
+      if (isVertical) {
+        // Find starting data column (Column 2 or 3)
         let startCol = 2;
-        if (rawMatrix[0] && rawMatrix[0][3] !== undefined && rawMatrix[0][3] !== null && String(rawMatrix[0][3]).trim() !== '') {
+        const testNameRow = labelRowMap.partName !== undefined ? labelRowMap.partName : 0;
+        if (rawMatrix[testNameRow] && rawMatrix[testNameRow][3] !== undefined && String(rawMatrix[testNameRow][3]).trim() !== '') {
           startCol = 3;
         }
 
-        const totalCols = (rawMatrix[nameRow] || rawMatrix[0] || []).length;
+        const maxCols = Math.max(...rawMatrix.map(r => r.length));
 
-        for (let c = startCol; c < totalCols; c++) {
-          const compNameRaw = rawMatrix[nameRow]?.[c];
-          const itemCodeRaw = rawMatrix[itemCodeRow]?.[c] || compNameRaw;
+        for (let c = startCol; c < maxCols; c++) {
+          const compNameRaw = labelRowMap.partName !== undefined ? rawMatrix[labelRowMap.partName]?.[c] : undefined;
+          const itemCodeRaw = labelRowMap.partCode !== undefined ? rawMatrix[labelRowMap.partCode]?.[c] : undefined;
+
           if (!compNameRaw && !itemCodeRaw) continue;
 
           const compName = String(compNameRaw || itemCodeRaw).trim();
           const itemCode = String(itemCodeRaw || compName).trim();
-          const mouldSize = String(rawMatrix[rowMap.mould || 2]?.[c] || '450x450x380').trim();
-          const modelName = String(rawMatrix[rowMap.model || 4]?.[c] || (isHaierVendor ? 'TM 258/278' : 'Aris Ceiling Fan')).trim();
+          const modelName = String((labelRowMap.model !== undefined ? rawMatrix[labelRowMap.model]?.[c] : '') || (isHaierVendor ? 'TM 258/278' : 'Aris Ceiling Fan')).trim();
+          const mouldSize = String((labelRowMap.mould !== undefined ? rawMatrix[labelRowMap.mould]?.[c] : '') || '450x450x380').trim();
 
-          const rawMatStr = String(rawMatrix[rmRow]?.[c] || (isHaierVendor ? 'HIPS SH303 + White MB' : 'PP H110MA + Gloss White')).trim();
+          const rawMatStr = String((labelRowMap.rmGrade !== undefined ? rawMatrix[labelRowMap.rmGrade]?.[c] : '') || (isHaierVendor ? 'HIPS SH303 + White MB' : 'PP H110MA + Gloss White')).trim();
           const { baseRm, mbGrade } = parseMaterialString(rawMatStr);
 
-          const rawMbVal = rawMatrix[mbRow]?.[c];
           let mbPct = isHaierVendor ? 4.0 : 2.0;
-          if (typeof rawMbVal === 'number') {
-            mbPct = rawMbVal <= 1 ? Number((rawMbVal * 100).toFixed(2)) : rawMbVal;
-          } else if (rawMbVal) {
-            mbPct = parseFloat(String(rawMbVal).replace('%', '')) || mbPct;
+          if (labelRowMap.mbPct !== undefined) {
+            const rawMb = rawMatrix[labelRowMap.mbPct]?.[c];
+            if (typeof rawMb === 'number') {
+              mbPct = rawMb <= 1 ? Number((rawMb * 100).toFixed(2)) : rawMb;
+            } else if (rawMb) {
+              mbPct = parseFloat(String(rawMb).replace('%', '')) || mbPct;
+            }
           }
 
-          const cavity = parseInt(rawMatrix[cavityRow]?.[c], 10) || (isHaierVendor ? 1 : 2);
-          const runnerWt = parseFloat(rawMatrix[runnerRow]?.[c]) || 0;
-          const netWt = parseFloat(rawMatrix[netWtRow]?.[c]) || 0;
-          const shotWt = parseFloat(rawMatrix[rowMap.shotWt || 10]?.[c]) || (netWt * cavity + runnerWt);
-          const reconWt = parseFloat(rawMatrix[rowMap.reconWt || 11]?.[c]) || Number(((shotWt / cavity) * 1.02).toFixed(2));
+          const cavity = parseInt((labelRowMap.cavity !== undefined ? rawMatrix[labelRowMap.cavity]?.[c] : '') || (isHaierVendor ? '1' : '2'), 10) || 1;
+          const runnerWt = parseFloat((labelRowMap.runnerWt !== undefined ? rawMatrix[labelRowMap.runnerWt]?.[c] : '') || 0) || 0;
+          const netWt = parseFloat((labelRowMap.netWt !== undefined ? rawMatrix[labelRowMap.netWt]?.[c] : '') || 0) || 0;
+          const shotWt = parseFloat((labelRowMap.shotWt !== undefined ? rawMatrix[labelRowMap.shotWt]?.[c] : '') || (netWt * cavity + runnerWt)) || (netWt * cavity + runnerWt);
 
-          const machineTonnage = parseInt(rawMatrix[tonnageRow]?.[c], 10) || (isHaierVendor ? 600 : 150);
-          const shiftTariff = parseFloat(rawMatrix[tariffRow]?.[c]) || (isHaierVendor ? 4800 : 2800);
-          const cycleTimeApproved = parseFloat(rawMatrix[ctRow]?.[c]) || (isHaierVendor ? 70 : 38);
-          const approvedCost = parseFloat(rawMatrix[totalCostRow]?.[c]) || 0;
+          const cycleTime = parseFloat((labelRowMap.ct !== undefined ? rawMatrix[labelRowMap.ct]?.[c] : '') || (isHaierVendor ? 70 : 38)) || (isHaierVendor ? 70 : 38);
+          const tonnage = parseInt((labelRowMap.tonnage !== undefined ? rawMatrix[labelRowMap.tonnage]?.[c] : '') || (isHaierVendor ? 600 : 150), 10) || 150;
+          const tariff = parseFloat((labelRowMap.tariff !== undefined ? rawMatrix[labelRowMap.tariff]?.[c] : '') || (isHaierVendor ? 4800 : 2800)) || 2800;
+
+          const rmRate = parseFloat((labelRowMap.rmRate !== undefined ? rawMatrix[labelRowMap.rmRate]?.[c] : '') || (isHaierVendor ? 154 : 131)) || 131;
+          const mbRate = parseFloat((labelRowMap.mbRate !== undefined ? rawMatrix[labelRowMap.mbRate]?.[c] : '') || 242) || 242;
 
           // Auto-Register in RM Matrix
           if (baseRm) {
@@ -224,8 +208,44 @@ export default function BaselineMasterPage() {
               vendor: selectedVendor,
               type: 'RM',
               approvedCode: baseRm,
-              approvedPrice: isHaierVendor ? 154 : 131
+              approvedPrice: rmRate
             });
+          }
+
+          // Calculate Baseline Cost
+          let finalAppCost = 0;
+          if (isHaierVendor) {
+            const h = calculateHaierCost({
+              cavity,
+              netWeight: netWt,
+              runnerWeight: runnerWt,
+              shotWeight: shotWt,
+              rmRate,
+              masterbatchPct: mbPct,
+              masterbatchRate: mbRate,
+              shiftTariff: tariff,
+              cycleTime,
+              haierOverheadPackage: 8.71
+            });
+            finalAppCost = h.totalCost;
+          } else {
+            const a = calculateAtombergCost({
+              rmBase: rmRate,
+              mbBase: mbRate,
+              partWt: netWt,
+              runnerWt: runnerWt,
+              mbPct: mbPct / 100,
+              bopCost: 0,
+              cycleTime: cycleTime,
+              cavity: cavity,
+              tonnage: tonnage,
+              shiftTariff: tariff,
+              postOpCost: 1.73,
+              packingCost: 0.86,
+              transportCost: 0.62,
+              scrapRate: 25
+            });
+            finalAppCost = a.finalLanded;
           }
 
           parsed.push({
@@ -243,17 +263,21 @@ export default function BaselineMasterPage() {
             runnerWeight: runnerWt,
             netWeight: netWt,
             shotWeight: shotWt,
-            reconciliationWeight: reconWt,
-            machineTonnage: machineTonnage,
-            shiftTariff: shiftTariff,
-            cycleTimeApproved: cycleTimeApproved,
-            approvedCost: approvedCost,
+            machineTonnage: tonnage,
+            shiftTariff: tariff,
+            cycleTimeApproved: cycleTime,
+            bopCost: 0,
+            postOpCost: 1.73,
+            packingCost: 0.86,
+            transportCost: 0.62,
+            scrapRate: 25,
+            approvedCost: finalAppCost,
             parameters: {
-              runningCycleTime: cycleTimeApproved,
+              runningCycleTime: cycleTime,
               runningCavity: cavity,
               runningRunnerWeight: runnerWt,
               runningNetWeight: netWt,
-              runningShiftTariff: shiftTariff,
+              runningShiftTariff: tariff,
               runningMbPct: mbPct
             }
           });
@@ -293,7 +317,7 @@ export default function BaselineMasterPage() {
   const activeStaged = stagedData[selectedStagedIndex] || null;
   const isHaierVendor = (selectedVendor || '').toLowerCase().includes('haier');
 
-  // Computed live cost for staged item
+  // Live computed cost for active staged item
   let computedStagedTotal = 0;
   if (activeStaged) {
     if (isHaierVendor) {
@@ -307,7 +331,7 @@ export default function BaselineMasterPage() {
         masterbatchRate: 242,
         shiftTariff: activeStaged.shiftTariff,
         cycleTime: activeStaged.cycleTimeApproved,
-        haierOverheadPackage: activeStaged.haierOverheadPackage || 8.71
+        haierOverheadPackage: 8.71
       });
       computedStagedTotal = Number(activeStaged.approvedCost || hCalc.totalCost || 0);
     } else {
@@ -415,7 +439,7 @@ export default function BaselineMasterPage() {
         </div>
       </div>
 
-      {/* Main Parameters Table */}
+      {/* Parameters Master Table */}
       <div className="bg-white rounded-2xl border border-slate-300 overflow-hidden shadow-sm">
         <div className="p-3 bg-slate-900 text-white flex justify-between items-center">
           <div className="flex items-center gap-2">
@@ -534,7 +558,7 @@ export default function BaselineMasterPage() {
         />
       )}
 
-      {/* RENDER STAGING & VERIFICATION MODAL */}
+      {/* RENDER STAGING MODAL */}
       {showUploadModal && activeStaged && (
         <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-xs">
@@ -576,7 +600,7 @@ export default function BaselineMasterPage() {
                     <button
                       key={idx}
                       onClick={() => setSelectedStagedIndex(idx)}
-                      className={`px-3 py-2 rounded-xl text-left border transition-all shrink-0 w-44 cursor-pointer ${
+                      className={`px-3 py-2 rounded-xl text-left border transition-all shrink-0 w-48 cursor-pointer ${
                         isSelected 
                           ? 'bg-blue-600 text-white border-blue-700 shadow-md font-bold' 
                           : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
@@ -613,156 +637,227 @@ export default function BaselineMasterPage() {
               </div>
             </div>
 
-            {/* Full Vertical Specification Table */}
+            {/* Staging Spec Table */}
             <div className="flex-1 overflow-y-auto p-4 space-y-1">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead className="bg-slate-100 text-slate-700 text-[10px] uppercase font-bold sticky top-0 border-b border-slate-200">
-                  <tr>
-                    <th className="py-2 px-3 w-8">#</th>
-                    <th className="py-2 px-3">DESCRIPTION / COSTING LINE</th>
-                    <th className="py-2 px-3 text-center w-24">UOM</th>
-                    <th className="py-2 px-4 text-right w-64">STAGED VALUE (EDITABLE)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
-                  <tr>
-                    <td className="py-2 px-3 font-mono text-slate-400">1</td>
-                    <td className="py-2 px-3 font-bold">Name Of component</td>
-                    <td className="py-2 px-3 text-center">-</td>
-                    <td className="py-2 px-4 text-right font-bold text-slate-800">{activeStaged.componentName}</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 font-mono text-slate-400">2</td>
-                    <td className="py-2 px-3">Mould size L x W x H</td>
-                    <td className="py-2 px-3 text-center">mm</td>
-                    <td className="py-2 px-4 text-right font-mono">{activeStaged.mouldSize}</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 font-mono text-slate-400">3</td>
-                    <td className="py-2 px-3 font-bold text-blue-700">Item No. / Part Code</td>
-                    <td className="py-2 px-3 text-center">-</td>
-                    <td className="py-2 px-4 text-right font-mono font-bold text-blue-700">{activeStaged.itemCode}</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 font-mono text-slate-400">4</td>
-                    <td className="py-2 px-3">Model</td>
-                    <td className="py-2 px-3 text-center">-</td>
-                    <td className="py-2 px-4 text-right font-mono">{activeStaged.model}</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 font-mono text-slate-400">5</td>
-                    <td className="py-2 px-3 font-bold">Raw Material Required</td>
-                    <td className="py-2 px-3 text-center">-</td>
-                    <td className="py-2 px-4 text-right font-bold text-slate-800">{activeStaged.approvedRm}</td>
-                  </tr>
-                  <tr className="bg-purple-50/40">
-                    <td className="py-2 px-3 font-mono text-slate-400">6</td>
-                    <td className="py-2 px-3 font-bold text-purple-900">Master Batch Required (%)</td>
-                    <td className="py-2 px-3 text-center">%</td>
-                    <td className="py-2 px-4 text-right">
-                      <input 
-                        type="number" 
-                        step="0.1" 
-                        value={activeStaged.masterbatchPct} 
-                        onChange={e => handleUpdateActiveStaged('masterbatchPct', parseFloat(e.target.value) || 0)} 
-                        className="w-24 px-2 py-0.5 border border-purple-300 rounded text-right font-bold text-purple-900 bg-white" 
-                      />
-                    </td>
-                  </tr>
-                  <tr className="bg-amber-50/30">
-                    <td className="py-2 px-3 font-mono text-slate-400">7</td>
-                    <td className="py-2 px-3 font-bold text-amber-950">No. of Cavity</td>
-                    <td className="py-2 px-3 text-center">Nos</td>
-                    <td className="py-2 px-4 text-right">
-                      <input 
-                        type="number" 
-                        value={activeStaged.cavity} 
-                        onChange={e => handleUpdateActiveStaged('cavity', parseInt(e.target.value, 10) || 1)} 
-                        className="w-24 px-2 py-0.5 border border-amber-300 rounded text-right font-bold bg-white" 
-                      />
-                    </td>
-                  </tr>
-                  <tr className="bg-amber-50/30">
-                    <td className="py-2 px-3 font-mono text-slate-400">8</td>
-                    <td className="py-2 px-3 font-bold text-amber-950">Runner Weight</td>
-                    <td className="py-2 px-3 text-center">Gms</td>
-                    <td className="py-2 px-4 text-right">
-                      <input 
-                        type="number" 
-                        step="0.01"
-                        value={activeStaged.runnerWeight} 
-                        onChange={e => handleUpdateActiveStaged('runnerWeight', parseFloat(e.target.value) || 0)} 
-                        className="w-24 px-2 py-0.5 border border-amber-300 rounded text-right font-bold bg-white" 
-                      />
-                    </td>
-                  </tr>
-                  <tr className="bg-amber-50/30">
-                    <td className="py-2 px-3 font-mono text-slate-400">9</td>
-                    <td className="py-2 px-3 font-bold text-amber-950">Net Weight</td>
-                    <td className="py-2 px-3 text-center">Gms</td>
-                    <td className="py-2 px-4 text-right">
-                      <input 
-                        type="number" 
-                        step="0.01"
-                        value={activeStaged.netWeight} 
-                        onChange={e => handleUpdateActiveStaged('netWeight', parseFloat(e.target.value) || 0)} 
-                        className="w-24 px-2 py-0.5 border border-amber-300 rounded text-right font-bold bg-white" 
-                      />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 font-mono text-slate-400">10</td>
-                    <td className="py-2 px-3">Shot Weight</td>
-                    <td className="py-2 px-3 text-center">Gms</td>
-                    <td className="py-2 px-4 text-right font-mono font-bold">{Number(activeStaged.shotWeight || (activeStaged.netWeight * activeStaged.cavity + activeStaged.runnerWeight)).toFixed(2)}g</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 font-mono text-slate-400">16</td>
-                    <td className="py-2 px-3">Machine Used (Tonnage)</td>
-                    <td className="py-2 px-3 text-center">T</td>
-                    <td className="py-2 px-4 text-right">
-                      <input 
-                        type="number" 
-                        value={activeStaged.machineTonnage} 
-                        onChange={e => handleUpdateActiveStaged('machineTonnage', parseInt(e.target.value, 10) || 0)} 
-                        className="w-24 px-2 py-0.5 border border-slate-300 rounded text-right font-bold bg-white" 
-                      />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 font-mono text-slate-400">17</td>
-                    <td className="py-2 px-3 font-bold">Machine Tariff per Shift</td>
-                    <td className="py-2 px-3 text-center">Rs</td>
-                    <td className="py-2 px-4 text-right">
-                      <input 
-                        type="number" 
-                        value={activeStaged.shiftTariff} 
-                        onChange={e => handleUpdateActiveStaged('shiftTariff', parseFloat(e.target.value) || 0)} 
-                        className="w-24 px-2 py-0.5 border border-slate-300 rounded text-right font-bold bg-white" 
-                      />
-                    </td>
-                  </tr>
-                  <tr className="bg-amber-50/50">
-                    <td className="py-2 px-3 font-mono text-slate-400">18</td>
-                    <td className="py-2 px-3 font-black text-amber-950">Cycle Time</td>
-                    <td className="py-2 px-3 text-center">Sec</td>
-                    <td className="py-2 px-4 text-right">
-                      <input 
-                        type="number" 
-                        value={activeStaged.cycleTimeApproved} 
-                        onChange={e => handleUpdateActiveStaged('cycleTimeApproved', parseFloat(e.target.value) || 0)} 
-                        className="w-24 px-2 py-0.5 border border-amber-400 rounded text-right font-black text-amber-950 bg-white" 
-                      />
-                    </td>
-                  </tr>
-                  <tr className="bg-slate-900 text-white font-black">
-                    <td className="py-2.5 px-3 font-mono text-amber-400">38</td>
-                    <td className="py-2.5 px-3 uppercase text-amber-400">TOTAL COST</td>
-                    <td className="py-2.5 px-3 text-center">Rs</td>
-                    <td className="py-2.5 px-4 text-right font-mono text-amber-300 text-sm">₹{computedStagedTotal.toFixed(2)}</td>
-                  </tr>
-                </tbody>
-              </table>
+              {!isHaierVendor ? (
+                /* Atomberg Staging Table */
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead className="bg-slate-100 text-slate-700 text-[10px] uppercase font-bold sticky top-0 border-b border-slate-200">
+                    <tr>
+                      <th className="py-2 px-3">Atomberg Cost Parameter</th>
+                      <th className="py-2 px-3 text-center w-24">UOM</th>
+                      <th className="py-2 px-4 text-right w-64">Staged Value (Editable)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    <tr>
+                      <td className="py-2 px-3 font-bold">Part Name / Description</td>
+                      <td className="py-2 px-3 text-center">-</td>
+                      <td className="py-2 px-4 text-right font-bold text-slate-800">{activeStaged.componentName}</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 px-3 font-bold text-blue-700">Item No. / Part Code</td>
+                      <td className="py-2 px-3 text-center">-</td>
+                      <td className="py-2 px-4 text-right font-mono font-bold text-blue-700">{activeStaged.itemCode}</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 px-3">Base Polymer & Grade</td>
+                      <td className="py-2 px-3 text-center">-</td>
+                      <td className="py-2 px-4 text-right font-semibold text-slate-700">{activeStaged.approvedRm}</td>
+                    </tr>
+                    <tr className="bg-purple-50/40">
+                      <td className="py-2 px-3 font-bold text-purple-900">Masterbatch %</td>
+                      <td className="py-2 px-3 text-center">%</td>
+                      <td className="py-2 px-4 text-right">
+                        <input 
+                          type="number" 
+                          step="0.1" 
+                          value={activeStaged.masterbatchPct} 
+                          onChange={e => handleUpdateActiveStaged('masterbatchPct', parseFloat(e.target.value) || 0)} 
+                          className="w-24 px-2 py-0.5 border border-purple-300 rounded text-right font-bold text-purple-900 bg-white" 
+                        />
+                      </td>
+                    </tr>
+                    <tr className="bg-amber-50/30">
+                      <td className="py-2 px-3 font-bold text-amber-950">No. of Cavity</td>
+                      <td className="py-2 px-3 text-center">Nos</td>
+                      <td className="py-2 px-4 text-right">
+                        <input 
+                          type="number" 
+                          value={activeStaged.cavity} 
+                          onChange={e => handleUpdateActiveStaged('cavity', parseInt(e.target.value, 10) || 1)} 
+                          className="w-24 px-2 py-0.5 border border-amber-300 rounded text-right font-bold bg-white" 
+                        />
+                      </td>
+                    </tr>
+                    <tr className="bg-amber-50/30">
+                      <td className="py-2 px-3 font-bold text-amber-950">Runner Weight</td>
+                      <td className="py-2 px-3 text-center">Gms</td>
+                      <td className="py-2 px-4 text-right">
+                        <input 
+                          type="number" 
+                          step="0.01"
+                          value={activeStaged.runnerWeight} 
+                          onChange={e => handleUpdateActiveStaged('runnerWeight', parseFloat(e.target.value) || 0)} 
+                          className="w-24 px-2 py-0.5 border border-amber-300 rounded text-right font-bold bg-white" 
+                        />
+                      </td>
+                    </tr>
+                    <tr className="bg-amber-50/30">
+                      <td className="py-2 px-3 font-bold text-amber-950">Part Net Weight</td>
+                      <td className="py-2 px-3 text-center">Gms</td>
+                      <td className="py-2 px-4 text-right">
+                        <input 
+                          type="number" 
+                          step="0.01"
+                          value={activeStaged.netWeight} 
+                          onChange={e => handleUpdateActiveStaged('netWeight', parseFloat(e.target.value) || 0)} 
+                          className="w-24 px-2 py-0.5 border border-amber-300 rounded text-right font-bold bg-white" 
+                        />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 px-3">Total Shot Weight</td>
+                      <td className="py-2 px-3 text-center">Gms</td>
+                      <td className="py-2 px-4 text-right font-mono font-bold">{Number(activeStaged.shotWeight || (activeStaged.netWeight * activeStaged.cavity + activeStaged.runnerWeight)).toFixed(2)}g</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 px-3">Machine Used (Tonnage)</td>
+                      <td className="py-2 px-3 text-center">T</td>
+                      <td className="py-2 px-4 text-right">
+                        <input 
+                          type="number" 
+                          value={activeStaged.machineTonnage} 
+                          onChange={e => handleUpdateActiveStaged('machineTonnage', parseInt(e.target.value, 10) || 0)} 
+                          className="w-24 px-2 py-0.5 border border-slate-300 rounded text-right font-bold bg-white" 
+                        />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 px-3 font-bold">Machine Tariff per Shift</td>
+                      <td className="py-2 px-3 text-center">Rs</td>
+                      <td className="py-2 px-4 text-right">
+                        <input 
+                          type="number" 
+                          value={activeStaged.shiftTariff} 
+                          onChange={e => handleUpdateActiveStaged('shiftTariff', parseFloat(e.target.value) || 0)} 
+                          className="w-24 px-2 py-0.5 border border-slate-300 rounded text-right font-bold bg-white" 
+                        />
+                      </td>
+                    </tr>
+                    <tr className="bg-amber-50/50">
+                      <td className="py-2 px-3 font-black text-amber-950">Cycle Time</td>
+                      <td className="py-2 px-3 text-center">Sec</td>
+                      <td className="py-2 px-4 text-right">
+                        <input 
+                          type="number" 
+                          value={activeStaged.cycleTimeApproved} 
+                          onChange={e => handleUpdateActiveStaged('cycleTimeApproved', parseFloat(e.target.value) || 0)} 
+                          className="w-24 px-2 py-0.5 border border-amber-400 rounded text-right font-black text-amber-950 bg-white" 
+                        />
+                      </td>
+                    </tr>
+                    <tr className="bg-slate-900 text-white font-black">
+                      <td className="py-2.5 px-3 uppercase text-amber-400">FINAL LANDED COST / PC</td>
+                      <td className="py-2.5 px-3 text-center">Rs</td>
+                      <td className="py-2.5 px-4 text-right font-mono text-amber-300 text-sm">₹{computedStagedTotal.toFixed(2)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              ) : (
+                /* Haier 38-Line Staging Table */
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead className="bg-slate-100 text-slate-700 text-[10px] uppercase font-bold sticky top-0 border-b border-slate-200">
+                    <tr>
+                      <th className="py-2 px-3 w-8">#</th>
+                      <th className="py-2 px-3">DESCRIPTION / COSTING LINE</th>
+                      <th className="py-2 px-3 text-center w-24">UOM</th>
+                      <th className="py-2 px-4 text-right w-64">STAGED VALUE (EDITABLE)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    <tr>
+                      <td className="py-2 px-3 font-mono text-slate-400">1</td>
+                      <td className="py-2 px-3 font-bold">Name Of component</td>
+                      <td className="py-2 px-3 text-center">-</td>
+                      <td className="py-2 px-4 text-right font-bold text-slate-800">{activeStaged.componentName}</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 px-3 font-mono text-slate-400">3</td>
+                      <td className="py-2 px-3 font-bold text-blue-700">Item No. / Part Code</td>
+                      <td className="py-2 px-3 text-center">-</td>
+                      <td className="py-2 px-4 text-right font-mono font-bold text-blue-700">{activeStaged.itemCode}</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 px-3 font-mono text-slate-400">5</td>
+                      <td className="py-2 px-3 font-bold">Raw Material Required</td>
+                      <td className="py-2 px-3 text-center">-</td>
+                      <td className="py-2 px-4 text-right font-bold text-slate-800">{activeStaged.approvedRm}</td>
+                    </tr>
+                    <tr className="bg-purple-50/40">
+                      <td className="py-2 px-3 font-mono text-slate-400">6</td>
+                      <td className="py-2 px-3 font-bold text-purple-900">Master Batch Required (%)</td>
+                      <td className="py-2 px-3 text-center">%</td>
+                      <td className="py-2 px-4 text-right">
+                        <input 
+                          type="number" 
+                          step="0.1" 
+                          value={activeStaged.masterbatchPct} 
+                          onChange={e => handleUpdateActiveStaged('masterbatchPct', parseFloat(e.target.value) || 0)} 
+                          className="w-24 px-2 py-0.5 border border-purple-300 rounded text-right font-bold text-purple-900 bg-white" 
+                        />
+                      </td>
+                    </tr>
+                    <tr className="bg-amber-50/30">
+                      <td className="py-2 px-3 font-mono text-slate-400">7</td>
+                      <td className="py-2 px-3 font-bold text-amber-950">No. of Cavity</td>
+                      <td className="py-2 px-3 text-center">Nos</td>
+                      <td className="py-2 px-4 text-right">
+                        <input 
+                          type="number" 
+                          value={activeStaged.cavity} 
+                          onChange={e => handleUpdateActiveStaged('cavity', parseInt(e.target.value, 10) || 1)} 
+                          className="w-24 px-2 py-0.5 border border-amber-300 rounded text-right font-bold bg-white" 
+                        />
+                      </td>
+                    </tr>
+                    <tr className="bg-amber-50/30">
+                      <td className="py-2 px-3 font-mono text-slate-400">8</td>
+                      <td className="py-2 px-3 font-bold text-amber-950">Runner Weight</td>
+                      <td className="py-2 px-3 text-center">Gms</td>
+                      <td className="py-2 px-4 text-right">
+                        <input 
+                          type="number" 
+                          step="0.01"
+                          value={activeStaged.runnerWeight} 
+                          onChange={e => handleUpdateActiveStaged('runnerWeight', parseFloat(e.target.value) || 0)} 
+                          className="w-24 px-2 py-0.5 border border-amber-300 rounded text-right font-bold bg-white" 
+                        />
+                      </td>
+                    </tr>
+                    <tr className="bg-amber-50/30">
+                      <td className="py-2 px-3 font-mono text-slate-400">9</td>
+                      <td className="py-2 px-3 font-bold text-amber-950">Net Weight</td>
+                      <td className="py-2 px-3 text-center">Gms</td>
+                      <td className="py-2 px-4 text-right">
+                        <input 
+                          type="number" 
+                          step="0.01"
+                          value={activeStaged.netWeight} 
+                          onChange={e => handleUpdateActiveStaged('netWeight', parseFloat(e.target.value) || 0)} 
+                          className="w-24 px-2 py-0.5 border border-amber-300 rounded text-right font-bold bg-white" 
+                        />
+                      </td>
+                    </tr>
+                    <tr className="bg-slate-900 text-white font-black">
+                      <td className="py-2.5 px-3 font-mono text-amber-400">38</td>
+                      <td className="py-2.5 px-3 uppercase text-amber-400">TOTAL COST</td>
+                      <td className="py-2.5 px-3 text-center">Rs</td>
+                      <td className="py-2.5 px-4 text-right font-mono text-amber-300 text-sm">₹{computedStagedTotal.toFixed(2)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              )}
             </div>
 
             {/* Modal Footer Actions */}

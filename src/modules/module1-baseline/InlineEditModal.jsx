@@ -11,8 +11,8 @@ export default function InlineEditModal({ product, onClose, onSave, onDelete }) 
   const initialParams = product.parameters || {};
 
   const { baseRm, mbGrade } = parseMaterialString(product.approvedRm || product.baseRm);
-  const rmLookupKey = baseRm || product.baseRm || product.approvedRm || 'Unspecified';
-  const mbLookupKey = mbGrade || product.approvedMb || ((product.masterbatchPct || 0) > 0 ? 'White MB' : 'None');
+  const rmLookupKey = baseRm || product.baseRm || product.approvedRm || (isAtomberg ? 'PP H110MA' : 'HIPS SH303');
+  const mbLookupKey = mbGrade || product.approvedMb || ((product.masterbatchPct || 0) > 0 ? 'Gloss White MB' : 'None');
 
   const rmInfo = getActiveRmMapping(rmLookupKey, product.vendor) || {};
   const mbInfo = getActiveMbMapping(mbLookupKey, product.vendor) || {};
@@ -28,18 +28,18 @@ export default function InlineEditModal({ product, onClose, onSave, onDelete }) 
     baseRm: rmLookupKey,
     approvedMb: mbLookupKey,
     masterbatchPct: Number(product.masterbatchPct) || (isAtomberg ? 2 : 4),
-    cavity: Number(product.cavity) || (isAtomberg ? 2 : 1),
+    cavity: Number(product.cavity) || 2,
     runnerWeight: Number(product.runnerWeight) || (isAtomberg ? 5.27 : 0),
     netWeight: Number(product.netWeight) || (isAtomberg ? 133.81 : 372),
     shotWeight: Number(product.shotWeight) || (isAtomberg ? 272.89 : 372),
     reconciliationWeight: Number(product.reconciliationWeight) || 0,
-    machineTonnage: Number(product.machineTonnage) || (isAtomberg ? 150 : 600),
+    machineTonnage: Number(product.machineTonnage) || 150,
     shiftTariff: Number(product.shiftTariff) || (isAtomberg ? 2800 : 4800),
     cycleTimeApproved: Number(product.cycleTimeApproved) || (isAtomberg ? 38 : 70),
     bopCost: Number(product.bopCost) || 0,
-    postOpCost: Number(product.postOpCost || 1.73),
-    packingCost: Number(product.packingCost || 0.86),
-    transportCost: Number(product.transportCost || 0.62),
+    postOpCost: Number(product.postOpCost !== undefined ? product.postOpCost : 1.73),
+    packingCost: Number(product.packingCost !== undefined ? product.packingCost : 0.86),
+    transportCost: Number(product.transportCost !== undefined ? product.transportCost : 0.62),
     scrapRate: Number(product.scrapRate || 25),
     haierOverheadPackage: Number(product.haierOverheadPackage || 0),
     mouldMaintenance: Number(product.mouldMaintenance || 0),
@@ -48,6 +48,7 @@ export default function InlineEditModal({ product, onClose, onSave, onDelete }) 
     mouldSize: product.mouldSize || (isAtomberg ? '450x450x380' : '800x800x684'),
     model: product.model || (isAtomberg ? 'Aris Ceiling Fan' : 'TM 258/278'),
 
+    // Running Parameters
     runningCycleTime: Number(initialParams.runningCycleTime ?? product.cycleTimeApproved ?? (isAtomberg ? 38 : 70)),
     runningCavity: Number(initialParams.runningCavity ?? product.cavity ?? (isAtomberg ? 2 : 1)),
     runningRunnerWeight: Number(initialParams.runningRunnerWeight ?? product.runnerWeight ?? (isAtomberg ? 5.27 : 0)),
@@ -210,13 +211,16 @@ export default function InlineEditModal({ product, onClose, onSave, onDelete }) 
           </div>
         </div>
 
-        {/* Table Body */}
+        {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {!isHaier ? (
+            /* ========================================================================= */
+            /* ATOMBERG DUAL COLUMN TABLE                                                */
+            /* ========================================================================= */
             <table className="w-full text-left border-collapse">
               <thead className="bg-slate-100 text-slate-700 text-[10px] uppercase font-bold sticky top-0 border-b border-slate-200">
                 <tr>
-                  <th className="py-2.5 px-3">Cost Parameter / Specification</th>
+                  <th className="py-2.5 px-3">Atomberg Cost Parameter</th>
                   <th className="py-2.5 px-3 text-center w-24">UOM</th>
                   <th className="py-2.5 px-4 text-right w-44">Approved Baseline</th>
                   <th className="py-2.5 px-4 text-right w-44 text-blue-700">Actual Running</th>
@@ -225,7 +229,7 @@ export default function InlineEditModal({ product, onClose, onSave, onDelete }) 
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs font-medium">
                 <tr>
-                  <td className="py-2 px-3 font-bold">Component Name / Item Code</td>
+                  <td className="py-2 px-3 font-bold">Part Name / Item Code</td>
                   <td className="py-2 px-3 text-center">-</td>
                   <td className="py-2 px-4 text-right font-mono font-bold text-slate-800">{product.componentName}</td>
                   <td className="py-2 px-4 text-right font-mono font-bold text-blue-800">{product.componentName}</td>
@@ -293,7 +297,7 @@ export default function InlineEditModal({ product, onClose, onSave, onDelete }) 
                   <td className="py-2 px-3">Landed Polymer Base Rate (RM * 1.01 + 1.50)</td>
                   <td className="py-2 px-3 text-center">₹/kg</td>
                   <td className="py-2 px-4 text-right font-mono">₹{atombergBaseCalc.landedRm}</td>
-                  <td className="py-2 px-4 text-right font-mono text-blue-800">{atombergRunningCalc.landedRm}</td>
+                  <td className="py-2 px-4 text-right font-mono text-blue-800">₹{atombergRunningCalc.landedRm}</td>
                   <td className="py-2 px-3 text-right font-mono">₹{(atombergBaseCalc.landedRm - atombergRunningCalc.landedRm).toFixed(2)}</td>
                 </tr>
                 <tr>
@@ -328,7 +332,7 @@ export default function InlineEditModal({ product, onClose, onSave, onDelete }) 
                   <td className="py-2 px-3">Net Raw Material Cost / Pc</td>
                   <td className="py-2 px-3 text-center">Rs</td>
                   <td className="py-2 px-4 text-right font-mono">₹{atombergBaseCalc.netRmCost}</td>
-                  <td className="py-2 px-4 text-right font-mono text-blue-900">{atombergRunningCalc.netRmCost}</td>
+                  <td className="py-2 px-4 text-right font-mono text-blue-900">₹{atombergRunningCalc.netRmCost}</td>
                   <td className="py-2 px-3 text-right font-mono">₹{(atombergBaseCalc.netRmCost - atombergRunningCalc.netRmCost).toFixed(2)}</td>
                 </tr>
                 <tr>
@@ -421,6 +425,9 @@ export default function InlineEditModal({ product, onClose, onSave, onDelete }) 
               </tbody>
             </table>
           ) : (
+            /* ========================================================================= */
+            /* HAIER 38-LINE TABLE                                                       */
+            /* ========================================================================= */
             <table className="w-full text-left border-collapse">
               <thead className="bg-slate-100 text-slate-700 text-[10px] uppercase font-bold sticky top-0 border-b border-slate-200">
                 <tr>
@@ -442,27 +449,11 @@ export default function InlineEditModal({ product, onClose, onSave, onDelete }) 
                   <td className="py-2 px-3 text-right text-slate-400">-</td>
                 </tr>
                 <tr>
-                  <td className="py-2 px-3 font-mono text-slate-400">2</td>
-                  <td className="py-2 px-3">Mould size L x W xH</td>
-                  <td className="py-2 px-3 text-center">mm</td>
-                  <td className="py-2 px-4 text-right font-mono">{formData.mouldSize}</td>
-                  <td className="py-2 px-4 text-right font-mono text-blue-800">{formData.mouldSize}</td>
-                  <td className="py-2 px-3 text-right text-slate-400">-</td>
-                </tr>
-                <tr>
                   <td className="py-2 px-3 font-mono text-slate-400">3</td>
                   <td className="py-2 px-3 font-bold text-blue-700">Item No.</td>
                   <td className="py-2 px-3 text-center">-</td>
                   <td className="py-2 px-4 text-right font-mono font-bold text-blue-700">{product.itemCode}</td>
                   <td className="py-2 px-4 text-right font-mono font-bold text-blue-700">{product.itemCode}</td>
-                  <td className="py-2 px-3 text-right text-slate-400">-</td>
-                </tr>
-                <tr>
-                  <td className="py-2 px-3 font-mono text-slate-400">4</td>
-                  <td className="py-2 px-3">Model</td>
-                  <td className="py-2 px-3 text-center">-</td>
-                  <td className="py-2 px-4 text-right font-mono">{formData.model}</td>
-                  <td className="py-2 px-4 text-right font-mono text-blue-800">{formData.model}</td>
                   <td className="py-2 px-3 text-right text-slate-400">-</td>
                 </tr>
                 <tr>
@@ -474,47 +465,19 @@ export default function InlineEditModal({ product, onClose, onSave, onDelete }) 
                   <td className="py-2 px-3 text-right text-emerald-600 font-bold">Matched</td>
                 </tr>
                 <tr>
-                  <td className="py-2 px-3 font-mono text-slate-400">6</td>
-                  <td className="py-2 px-3 font-bold">Master Batch Required (%)</td>
-                  <td className="py-2 px-3 text-center">%</td>
-                  <td className="py-2 px-4 text-right">
-                    <input type="number" step="0.1" value={formData.masterbatchPct} onChange={e => setFormData({ ...formData, masterbatchPct: Number(e.target.value) || 0 })} className="w-20 px-2 py-0.5 border border-amber-300 rounded text-right font-bold" />
-                  </td>
-                  <td className="py-2 px-4 text-right">
-                    <input type="number" step="0.1" value={formData.runningMbPct} onChange={e => setFormData({ ...formData, runningMbPct: Number(e.target.value) || 0 })} className="w-20 px-2 py-0.5 border border-blue-300 rounded text-right font-bold text-blue-800" />
-                  </td>
-                  <td className="py-2 px-3 text-right font-mono">{(formData.masterbatchPct - formData.runningMbPct).toFixed(1)}%</td>
-                </tr>
-                <tr>
                   <td className="py-2 px-3 font-mono text-slate-400">7</td>
                   <td className="py-2 px-3 font-bold">No. of Cavity</td>
                   <td className="py-2 px-3 text-center">Nos</td>
-                  <td className="py-2 px-4 text-right">
-                    <input type="number" value={formData.cavity} onChange={e => setFormData({ ...formData, cavity: Number(e.target.value) || 1 })} className="w-16 px-2 py-0.5 border border-amber-300 rounded text-right font-bold" />
-                  </td>
-                  <td className="py-2 px-4 text-right">
-                    <input type="number" value={formData.runningCavity} onChange={e => setFormData({ ...formData, runningCavity: Number(e.target.value) || 1 })} className="w-16 px-2 py-0.5 border border-blue-300 rounded text-right font-bold text-blue-800" />
-                  </td>
+                  <td className="py-2 px-4 text-right font-bold">{formData.cavity}</td>
+                  <td className="py-2 px-4 text-right font-bold text-blue-800">{formData.runningCavity}</td>
                   <td className="py-2 px-3 text-right font-mono">{formData.cavity - formData.runningCavity}</td>
-                </tr>
-                <tr>
-                  <td className="py-2 px-3 font-mono text-slate-400">8</td>
-                  <td className="py-2 px-3">Runner Weight</td>
-                  <td className="py-2 px-3 text-center">Gms</td>
-                  <td className="py-2 px-4 text-right font-mono">{formData.runnerWeight}g</td>
-                  <td className="py-2 px-4 text-right">
-                    <input type="number" value={formData.runningRunnerWeight} onChange={e => setFormData({ ...formData, runningRunnerWeight: Number(e.target.value) || 0 })} className="w-20 px-2 py-0.5 border border-blue-300 rounded text-right font-bold text-blue-800" />
-                  </td>
-                  <td className="py-2 px-3 text-right font-mono">{(formData.runnerWeight - formData.runningRunnerWeight).toFixed(2)}g</td>
                 </tr>
                 <tr>
                   <td className="py-2 px-3 font-mono text-slate-400">9</td>
                   <td className="py-2 px-3 font-bold">Net Weight</td>
                   <td className="py-2 px-3 text-center">Gms</td>
                   <td className="py-2 px-4 text-right font-mono font-bold">{formData.netWeight}g</td>
-                  <td className="py-2 px-4 text-right">
-                    <input type="number" value={formData.runningNetWeight} onChange={e => setFormData({ ...formData, runningNetWeight: Number(e.target.value) || 0 })} className="w-20 px-2 py-0.5 border border-blue-300 rounded text-right font-bold text-blue-800" />
-                  </td>
+                  <td className="py-2 px-4 text-right font-mono font-bold text-blue-800">{formData.runningNetWeight}g</td>
                   <td className="py-2 px-3 text-right font-mono">{(formData.netWeight - formData.runningNetWeight).toFixed(2)}g</td>
                 </tr>
                 <tr className="bg-slate-900 text-white font-black text-xs">
