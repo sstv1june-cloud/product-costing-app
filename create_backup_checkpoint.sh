@@ -9,7 +9,7 @@ ARCHIVE_NAME="backup_${BRANCH}_${TIMESTAMP}.tar.gz"
 
 echo "==> 1. Staging and committing all pending changes on ${BRANCH}..."
 git add -A
-git commit -m "checkpoint(${BRANCH}): verified purchase/sales templates, RM default lock, MIS & costing report exports [${TIMESTAMP}]" || echo "Working tree clean."
+git commit -m "checkpoint(${BRANCH}): verified RM default locks, dynamic purchase dropdowns, save vendor period sync, and MIS layout [${TIMESTAMP}]" || echo "Working tree clean."
 
 echo "==> 2. Pushing current state to remote origin/${BRANCH}..."
 git push origin "${BRANCH}"
